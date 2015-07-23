@@ -1,0 +1,20 @@
+#+TITLE: CoAuth Documentation
+#+STYLE: <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+#+STYLE: <link rel="stylesheet" type="text/css" href="https://cdn.webheroes.ca/org/org.css" />
+
+#+HTML: <div class="container">
+
+* Overview
+  CoAuth is a user athentication service designed for Developers.  The
+  service takes care of the entire credential storage, authenticating
+  users and security management.
+
+** Issues
+
+*** Validate rules
+    - Not run in any order
+    - Hard to make dependant rules
+    - Have not built in a required rule
+
+*** Updating renaming variable keys
+    
