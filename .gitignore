@@ -1,0 +1,5 @@
+*.log
+*.pyc
+*~
+/testing.sql
+/docker/webheroes/chaosrouter/chaosrouter

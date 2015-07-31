@@ -16,9 +16,15 @@ conn			= sqlite3.connect( "testing.sql" )
 conn.row_factory	= row_factory
 
 cursor			= conn.cursor()
+cursor.execute("""
+SELECT name FROM sqlite_master WHERE type='table';
+""")
+print json.dumps(cursor.fetchall(), indent=4)
+
 
 router			= ChaosRouter('./routes.json', cursor=cursor)
 endpoint		= router.route('/get/people')
+
 result			= endpoint.execute()
 print "tested."
 print json.dumps(result, indent=4)

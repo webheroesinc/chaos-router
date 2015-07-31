@@ -23,7 +23,7 @@ class Generator(object):
         peoples			= []
         query			= """
         CREATE TABLE IF NOT EXISTS people (
-        person_id		INT(11) PRIMARY KEY,
+        person_id		INTEGER PRIMARY KEY AUTOINCREMENT,
         first_name		VARCHAR(100),
         last_name		VARCHAR(100),
         phone_number	        VARCHAR(25),
