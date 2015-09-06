@@ -1,0 +1,22 @@
+{
+  "name": "chaosrouter",
+  "version": "0.1.0",
+  "description": "ERROR: No README data found!",
+  "main": "chaosrouter.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Matthew Brisebois",
+  "license": "GPLv3",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:webheroesinc/chaos-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/webheroesinc/chaos-router/issues"
+  },
+  "dependencies": {
+    "restruct": "^0.1.3"
+  },
+  "devDependencies": {}
+}
