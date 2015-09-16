@@ -201,7 +201,7 @@ Endpoint.prototype.query		= function() {
     if (this.where === null)
 	var where	= '';
     else
-	var where	= " WHERE {0} ".format(this.where);
+	var where	= " WHERE {0} ".format(fill(this.where, this.args));
     var query		= " SELECT * FROM {table}{join}{where} ".format({
 	'table': this.table,
 	'join': joins,
