@@ -16,7 +16,8 @@
     "url": "https://github.com/webheroesinc/chaos-router/issues"
   },
   "dependencies": {
-    "restruct-data": "^0.1.3"
+    "promise": "^7.0.4",
+    "restruct-data": "^0.1.4"
   },
   "devDependencies": {}
 }

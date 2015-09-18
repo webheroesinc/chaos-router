@@ -1,13 +1,43 @@
 
 var py		= require('pythonify');
-py.bind();
+
+function dictpop(dict, key, d) {
+    var v;
+    if (dict[key] === undefined)
+        v	= d;
+    else {
+        v	= dict[key];
+	delete dict[key];
+    }
+    return v;
+}
+RegExp.escape = function(str) {
+    return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function format(str) {
+    for( var i=1; i < arguments.length; i++ ) {
+        var arg	= arguments[i];
+        if( py.is_dict(arg) ) {
+            for( var k in arg ) {
+                var re	= new RegExp( RegExp.escape("{"+k+"}"), 'g' );
+                str		= str.replace(re, arg[k]);
+            }
+        }
+        else {
+            var re	= new RegExp( RegExp.escape("{"+i+"}"), 'g' );
+            str	= str.replace(re, arg);
+        }
+    }
+    return str;
+}
+
 
 function fill(s, data) {
-    if (s.startswith(':<'))
-	return data.Get( s.slice(2).strip() )
+    if (s.indexOf(':<') === 0)
+	return data[s.slice(2).strip()]
 
-    var v	= s.format(data)
-    if (s.startswith(':')) {
+    var v	= format(s, data)
+    if (s.indexOf(':') === 0) {
 	try {
 	    v	= eval(v.slice(1));
 	} catch (err) {
@@ -18,95 +48,104 @@ function fill(s, data) {
 }
 
 function restruct(data, columns) {
-    if (type(data).in(['Array']))
+    if (py.type(data) === 'Array')
 	return attach_list(data, columns);
 
     var result	= [];
-    var struct	= columns.copy();
+    var struct	= py(columns).copy();
 
-    struct.pop('.key', null);
-    struct.pop('.index', null);
-    struct.pop('.single', null);
+    dictpop( struct, '.key', null );
+    dictpop( struct, '.index', null );
+    dictpop( struct, '.single', null );
 
-    if (".include".in(struct)) {
+    if (Object.keys(struct).indexOf(".include") !== -1) {
 	var include	= struct.pop('.include');
 	include.update(struct);
 	struct		= include;
     }
 
-    struct.iteritems(function(k,v) {
+    for (var k in struct) {
+	var v		= struct[k];
 	k		= fill(k, data);
 	if (v === true)
 	    struct[k]	= data[k];
-	else if(is_dict(v))
+	else if(py.is_dict(v))
 	    struct[k]	= restruct(data, v);
-	else if(is_string(v))
+	else if(py.is_string(v))
 	    struct[k]	= fill(v, data);
 	else if(v === false)
 	    delete struct[k];
 	else
 	    struct[k]	= null;
-    });
+    }
     return struct;
 }
 function attach_list(rows, columns) {
-    if (columns.Get('.key') !== null)
+    if (columns['.key'] !== undefined)
 	return attach_groups(rows, columns);
 
-    var struct		= columns.copy();
-    if ('.include'.in(struct)) {
+    var struct		= py(columns).copy();
+    if (Object.keys(struct).indexOf(".include") !== -1) {
 	var include	= struct.pop('.include');
 	include.update(struct);
 	struct		= include;
     }
     var result		= [];
-    rows.iterate(function(row) {
-	result.append( restruct(row, struct) );
-    });
+    for (var i in rows) {
+	var row		= rows[i];
+	result.push( restruct(row, struct) );
+    }
     return result;
 }
 function extract_struct(path, data) {
     var segments	= path.split('.');
-    segments.slice(0,-1).iterate(function(s) {
+    var _segs		= segments.slice(0,-1);
+    for (var i in _segs) {
+	var s		= _segs[i];
 	data		= data[s];
-    });
+    }
     var s		= segments.pop();
-    return data.copy().pop(s);
+    return dictpop(py(data).copy(), s);
 }
 function path_assign(path, data1, data2) {
     var segments	= path.split('.');
-    segments.slice(0,-1).iterate(function(s) {
+    var _segs		= segments.slice(0,-1);
+    for (var i in _segs) {
+	var s		= _segs[i];
 	data1		= data[s];
-    });
+    }
     var s		= segments.pop();
     data1[s]		= data2;
     return data1;
 }
 function attach_groups(data, struct) {
-    var gstruct		= struct.copy();
+    var gstruct		= py(struct).copy();
     var sub_structs	= {};
     var duplicates	= [];
-    var gkey		= gstruct.pop('.key', null);
-    var gindex		= gstruct.pop('.index', null);
-    var gsingle		= gstruct.pop('.single', null);
+    var gkey		= dictpop( gstruct, '.key', null);
+    var gindex		= dictpop( gstruct, '.index', null);
+    var gsingle		= dictpop( gstruct, '.single', null);
 
-    if (is_list(gkey)) {
+    if (Array.isArray(gkey)) {
 	duplicates	= gkey.slice();
-	gkey		= duplicates.pop(0);
+	gkey		= duplicates.shift();
     }
 
-    duplicates.iterate(function(k) {
+    for (var i in duplicates) {
+	var k		= duplicates[i];
 	sub_structs[k]	= extract_struct(k, gstruct);
-    });
+    }
 
     var groups		= group_data(data, gkey);
     var gresult		= {};
-    groups.iteritems(function(key, rows) {
+    for (var key in groups) {
+	var rows	= groups[key];
 	gresult[key]	= restruct(rows[0], gstruct);
-	duplicates.iterate(function(k) {
+	for (var i in duplicates) {
+	    var k		= duplicates[i];
 	    path_assign(k, gresult[key], restruct(rows, sub_structs[k]));
-	});
-    });
+	}
+    }
 
     if (gsingle === true) {
 	if (len(gresult))
@@ -121,14 +160,15 @@ function attach_groups(data, struct) {
 }
 function group_data(data, gkey) {
     var groups		= {};
-    data.iterate(function(d) {
+    for (var i in data) {
+	var d		= data[i];
 	var k		= fill(gkey, d);
-	if (k.in(['undefined','null']))
+	if (k === 'undefined' || k === 'null')
 	    return;
-	if (k.notIn(groups))
+	if (Object.keys(groups).indexOf(k) === -1)
 	    groups[k]	= [];
-	groups[k].append(d);
-    });
+	groups[k].push(d);
+    }
     return groups;
 }
 
