@@ -11,7 +11,7 @@ var validationlib = {
 	return value.is_number();
     },
     "not_empty": function(value, kwargs) {
-	return value.strip() !== "";
+	return value.trim() !== "";
     }
 }
 
@@ -21,6 +21,51 @@ var methodlib = {
 function setdefault(value, d) {
     return value === undefined ? d : value;
 }
+function is_dict(d) {
+    return d.constructor.name == 'Object';
+}
+function is_string(d) {
+    return typeof d == 'string';
+}
+function dictcopy(dict) {
+    var copy		= {}
+    for( var i in dict ) {
+        copy[i]		= dict[i]
+    }
+    return copy
+
+}
+function format(str) {
+    for( var i=1; i < arguments.length; i++ ) {
+        var arg	= arguments[i];
+        if( is_dict(arg) ) {
+            for( var k in arg ) {
+                var re	= new RegExp( RegExp.escape("{"+k+"}"), 'g' );
+                str		= str.replace(re, arg[k]);
+            }
+        }
+        else {
+            var re	= new RegExp( RegExp.escape("{"+i+"}"), 'g' );
+            str	= str.replace(re, arg);
+        }
+    }
+    return str;
+}
+function fill(s, data) {
+    if (s.indexOf(':<') === 0)
+	return data[s.slice(2).trim() ]
+
+    var v	= format(s, data)
+    if (s.indexOf(':') === 0) {
+	try {
+	    v	= eval(v.slice(1));
+	} catch (err) {
+	    v	= null;
+	}
+    }
+    return v;
+}
+
 function ChaosRouter(data, db, basepath) {
     if (! (this instanceof ChaosRouter))
 	return new ChaosRouter(data, db, basepath);
@@ -29,12 +74,13 @@ function ChaosRouter(data, db, basepath) {
     this.basepath	= setdefault(basepath, '/');
     this.db		= setdefault(db, null);
 
+    
     if (is_dict(data))
 	this.config	= data;
     else if (is_string(data))
 	this.configfile	= data;
     else
-	throw new Error("Unrecognized data type: {0}".format(type(data)))
+	throw new Error(format("Unrecognized data type: {0}", typeof data))
 }
 ChaosRouter.prototype.set_db	= function(db) {
     this.db		= db;
@@ -58,13 +104,16 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 
     var variables	= {};
 
-    if (data === null || path.startswith('/')) {
+    if (data === null || path.indexOf('/') === 0) {
 	data		= this.config;
 	parents		= [['', data]];
-	if (path.startswith(this.basepath))
-	    path	= path.slice(len(this.basepath));
+	if (path.indexOf(this.basepath) === 0)
+	    path	= path.slice(this.basepath.length);
     }
-    var segs		= path.strip('/').split('/');
+
+    // Remove leading and trailing slashes.
+    var _p		= path.replace(/^\//, "").replace(/\/*$/, "")
+    var segs		= _p.split('/');
 
     if (!path)
 	return Endpoint(this.config, variables, parents, this.db);
@@ -76,14 +125,14 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    return;
 	}
 
-	if (data.Get(seg) === null) {
+	if (data[seg] === undefined) {
 	    var vkeys	= [];
 	    data.keys().iterate(function(v) {
-		if (v.strip().startswith(':'))
-		    vkeys.append(v.strip());
+		if (v.trim().indexOf(':') === 0)
+		    vkeys.push(v.trim());
 	    });
-	    var vkey	= len(vkeys) > 0 ? vkeys.pop() : null;
-	    data	= vkey === null ? null : data.Get(vkey);
+	    var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
+	    data	= vkey === null ? null : data[vkey];
 
 	    if (data === null)
 		return false;
@@ -91,16 +140,16 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    variables[vkey.slice(1)]	= seg;
 	}
 	else
-	    data	= data.Get(seg);
-	parents.append([seg,data]);
+	    data	= data[seg];
+	parents.push([seg,data]);
     }
     parents.pop();
 
-    if (data.Get('.base') === null)
-	var config	= data.copy();
+    if (data['.base'] === undefined)
+	var config	= dictcopy(data);
     else {
-	var base	= this.route( data.Get('.base'), data, parents );
-	var config	= base.config.copy();
+	var base	= this.route( data['.base'], data, parents );
+	var config	= dictcopy(base.config);
 	config.update(data);
     }
 
@@ -108,8 +157,8 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 }
 
 function fill(s, data) {
-    var v	= s.format(data)
-    if (s.startswith(':')) {
+    var v	= format(s, data)
+    if (s.indexOf(':') === 0) {
 	try {
 	    v	= eval(v.slice(1));
 	} catch (err) {
@@ -146,8 +195,8 @@ Endpoint.prototype.validate	= function(validations) {
     var self		= this;
     var promises	= [];
     validations.iterate(function(rule) {
-	if (! is_list(rule) || len(rule) === 0)
-	    throw new Error("Failed to process rule: {0}".format(rule));
+	if (! is_list(rule) || rule.length === 0)
+	    throw new Error(format("Failed to process rule: {0}", rule));
 	var command	= rule[0];
 	var params	= [];
 	rule.slice(1).iterate(function(param) {
@@ -157,17 +206,17 @@ Endpoint.prototype.validate	= function(validations) {
 	    catch (e) {
 		var value	= null;
 	    }
-	    params.append(value);
+	    params.push(value);
 	});
-	var cmd		= validationlib.Get(command);
+	var cmd		= validationlib[command];
 	if (cmd === null)
-	    throw new Error("No validation method for rule {0}".format(rule));
-	promises.append(new Promise(function(f,r){
+	    throw new Error(format("No validation method for rule {0}", rule));
+	promises.push(new Promise(function(f,r){
 	    cmd.call(validationlib, function(check) {
 		if (is_dict(check))
 		    r(check);
 		if (check !== true) {
-		    var message	= "Failed at rule {0} with values {1}".format(rule, params);
+		    var message	= format("Failed at rule {0} with values {1}", rule, params);
 		    r({
 			"error": "Failed Validation",
 			"message": is_string(check) ? check : message
@@ -180,45 +229,48 @@ Endpoint.prototype.validate	= function(validations) {
     return Promise.all(promises);
 }
 Endpoint.prototype.query		= function() {
-    this.table		= this.config.Get('.table');
-    this.where		= this.config.Get('.where');
-    this.joins		= this.config.Get('.join');
+    this.table		= this.config['.table'];
+    this.where		= this.config['.where'];
+    this.joins		= this.config['.join'];
 
-    if (this.joins === null)
+    if (this.joins === undefined) {
 	var joins	= '';
+    }
     else {
 	var joins	= [];
 	this.joins.iterate(function(join) {
 	    var t	= join[0];
 	    var s	= "`{0}`.`{1}`";
-            var c1	= s.format.apply(s, join[1] )
-            var c2	= s.format.apply(s, join[2] )
-	    joins.append("{0} ON {1} = {2}".format(t,c1,c2))
+            var c1	= format.apply(s, s, join[1] )
+            var c2	= format.apply(s, s, join[2] )
+	    joins.push(format("{0} ON {1} = {2}", t,c1,c2))
 	});
 	joins		= " LEFT JOIN " + " LEFT JOIN ".join(joins);
     }
 
-    if (this.where === null)
+    if (this.where === undefined) {
 	var where	= '';
-    else
-	var where	= " WHERE {0} ".format(fill(this.where, this.args));
-    var query		= " SELECT * FROM {table}{join}{where} ".format({
+    }
+    else {
+	var where	= format(" WHERE {0} ", fill(this.where, this.args));
+    }
+    var query		= format(" SELECT * FROM {table}{join}{where} ", {
 	'table': this.table,
 	'join': joins,
 	'where': where
     });
 
-    query		= query.format(this.args);
+    query		= format(query, this.args);
     return query;
 }
 Endpoint.prototype.get_structure	= function() {
-    var structure	= this.config.Get('.structure');
-    if (structure === null)
+    var structure	= this.config['.structure'];
+    if (structure === undefined)
 	return false;
 
-    structure		= structure.copy();
-    var update		= this.config.Get('.structure_update');
-    if (update !== null) {
+    structure		= dictcopy(structure);
+    var update		= this.config['.structure_update'];
+    if (update !== undefined) {
 	structure.update( update );
 	structure.iteritems(function(k,v) {
 	    if (v === false)
@@ -231,14 +283,14 @@ Endpoint.prototype.get_structure	= function() {
 Endpoint.prototype.execute		= function() {
     var self		= this;
     return new Promise(function(f,r) {
-	self.validate(self.config.Get('.validate'))
+	self.validate(self.config['.validate'])
 	    .then(function() {
 		try {
-		    var method		= self.config.Get('.method');
-		    if (method !== null) {
-			var cmd		= methodlib.Get(method);
-			if (cmd === null)
-			    throw new Error("No method named {0}".format(method));
+		    var method		= self.config['.method'];
+		    if (method !== undefined) {
+			var cmd		= methodlib[method];
+			if (cmd === undefined)
+			    throw new Error(format("No method named {0}", method));
 			else
 			    return cmd.call(methodlib, function(result) {
 				f(result);
