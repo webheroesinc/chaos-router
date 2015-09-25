@@ -2,16 +2,25 @@
 var Promise	= require('promise');
 var restruct	= require('restruct-data');
 var fs		= require('fs');
+var util	= require('util');
 
 var validationlib = {
-    "is_digit": function(value, kwargs) {
-	return value.isdigit();
+    "is_digit": function(values, kwargs, db, callback) {
+	for(var i=0; i<values.length; i++) {
+	    if( isNaN(values[i]) ) {
+		return callback(false);
+	    }
+	}
+	return callback(true);
     },
-    "is_number": function(value, kwargs) {
-	return value.is_number();
-    },
-    "not_empty": function(value, kwargs) {
-	return value.trim() !== "";
+    "not_empty": function(values, kwargs, db, callback) {
+	var ch	= true
+	for(var i=0; i<values.length; i++) {
+	    if( values[i].trim() === "" ) {
+		return callback(false);
+	    }
+	}
+	return callback(true);
     }
 }
 
@@ -23,6 +32,14 @@ function setdefault(value, d) {
 }
 function is_dict(d) {
     return d.constructor.name == 'Object';
+}
+function is_iterable(d) {
+    try {
+	for( var i in d ) continue;
+    } catch(err) {
+	return false;
+    }
+    return true;
 }
 function is_string(d) {
     return typeof d == 'string';
@@ -45,7 +62,7 @@ function format(str) {
             }
         }
         else {
-            var re	= new RegExp( RegExp.escape("{"+i+"}"), 'g' );
+            var re	= new RegExp( RegExp.escape("{"+(i-1)+"}"), 'g' );
             str	= str.replace(re, arg);
         }
     }
@@ -86,14 +103,16 @@ ChaosRouter.prototype.set_db	= function(db) {
     this.db		= db;
 }
 ChaosRouter.prototype.extend_methods	= function(dict) {
-    dict.iteritems(function(k,v) {
-	methodlib[k] = v;
-    });
+    for( var k in dict) {
+	var v		= dict[k];
+	methodlib[k]	= v;
+    }
 }
 ChaosRouter.prototype.extend_validation	= function(dict) {
-    dict.iteritems(function(k,v) {
-	validationlib[k] = v;
-    });
+    for( var k in dict) {
+	var v		= dict[k];
+	validationlib[k]= v;
+    }
 }
 ChaosRouter.prototype.route	= function(path, data, parents) {
     data		= setdefault(data, null);
@@ -122,15 +141,17 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	var seg		= segs[i];
 	if (seg === "..") {
 	    data	= parents.pop()[1];
-	    return;
+	    continue;
 	}
 
 	if (data[seg] === undefined) {
 	    var vkeys	= [];
-	    data.keys().iterate(function(v) {
+	    var _keys	= Object.keys(data);
+	    for( var k in _keys ){
+		var v	=  _keys[k];
 		if (v.trim().indexOf(':') === 0)
 		    vkeys.push(v.trim());
-	    });
+	    }
 	    var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
 	    data	= vkey === null ? null : data[vkey];
 
@@ -150,7 +171,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     else {
 	var base	= this.route( data['.base'], data, parents );
 	var config	= dictcopy(base.config);
-	config.update(data);
+	util._extend(config, data);
     }
 
     return Endpoint(config, variables, parents, this.db);
@@ -180,13 +201,17 @@ function Endpoint(config, path_vars, parents, db) {
     this.db		= setdefault(db, null);
 }
 Endpoint.prototype.set_arguments	= function(args) {
-    if (!is_iterable(args))
+    if (!is_iterable(args)) {
 	return false;
-    ['db', 'value', 'path'].iterate(function(reserved) {
-	if (reserved.in(args))
+    }
+    var reserved_keys	= ['db', 'value', 'path'];
+    for(var i=0; i<reserved_keys.length; i++) {
+	var reserved	= reserved_keys[i];
+	if (args[reserved])
 	    delete args[reserved];
-    });
-    this.args.update(args);
+    }
+    for ( var name in args )
+	this.args[name] = args[name];
 }
 Endpoint.prototype.validate	= function(validations) {
     if (validations === null || validations === undefined)
@@ -194,12 +219,15 @@ Endpoint.prototype.validate	= function(validations) {
     
     var self		= this;
     var promises	= [];
-    validations.iterate(function(rule) {
-	if (! is_list(rule) || rule.length === 0)
+    for (var k in validations) {
+	var rule	= validations[k];
+	if (! util.isArray(rule) || rule.length === 0)
 	    throw new Error(format("Failed to process rule: {0}", rule));
 	var command	= rule[0];
 	var params	= [];
-	rule.slice(1).iterate(function(param) {
+	var _p		= rule.slice(1);
+	for( var i=0; i<_p.length; i++) {
+	    var param	= _p[i];
 	    try {
 		var value	= fill(param, self.args);
 	    }
@@ -207,25 +235,26 @@ Endpoint.prototype.validate	= function(validations) {
 		var value	= null;
 	    }
 	    params.push(value);
-	});
+	}
 	var cmd		= validationlib[command];
 	if (cmd === null)
 	    throw new Error(format("No validation method for rule {0}", rule));
 	promises.push(new Promise(function(f,r){
-	    cmd.call(validationlib, function(check) {
+	    cmd.call(validationlib, params, self.args, self.db, function(check) {
 		if (is_dict(check))
 		    r(check);
-		if (check !== true) {
+		else if (check !== true) {
 		    var message	= format("Failed at rule {0} with values {1}", rule, params);
 		    r({
 			"error": "Failed Validation",
 			"message": is_string(check) ? check : message
 		    })
 		}
-		f();
-	    }, params, self.args, self.db);
+		else
+		    f();
+	    });
 	}));
-    });
+    }
     return Promise.all(promises);
 }
 Endpoint.prototype.query		= function() {
@@ -238,14 +267,17 @@ Endpoint.prototype.query		= function() {
     }
     else {
 	var joins	= [];
-	this.joins.iterate(function(join) {
+	for(var i=0; i<this.joins.length; i++) {
+	    var join	= this.joins[i];
 	    var t	= join[0];
 	    var s	= "`{0}`.`{1}`";
-            var c1	= format.apply(s, s, join[1] )
-            var c2	= format.apply(s, s, join[2] )
+	    join[1].unshift(s);
+	    join[2].unshift(s);
+            var c1	= format.apply( this, join[1] )
+            var c2	= format.apply( this, join[2] )
 	    joins.push(format("{0} ON {1} = {2}", t,c1,c2))
-	});
-	joins		= " LEFT JOIN " + " LEFT JOIN ".join(joins);
+	}
+	joins		= " LEFT JOIN " + joins.join(" LEFT JOIN ");
     }
 
     if (this.where === undefined) {
@@ -271,11 +303,12 @@ Endpoint.prototype.get_structure	= function() {
     structure		= dictcopy(structure);
     var update		= this.config['.structure_update'];
     if (update !== undefined) {
-	structure.update( update );
-	structure.iteritems(function(k,v) {
+	util._extend( structure, update );
+	for( var k in structure) {
+	    var v	= structure[k];
 	    if (v === false)
 		delete structure[k];
-	});
+	}
     }
     
     return structure;
@@ -305,19 +338,37 @@ Endpoint.prototype.execute		= function() {
 			    });
 
 			var query		= self.query();
-			self.db.all(query, function(err, all) {
+
+			var q_callback		= function(err, all) {
+			    if(err !== undefined && err !== null)
+				return f(err);
 			    var result	= structure === null
 				? all
 				: restruct(all, structure);
 			    return f(result);
-			});
-			
+			}
+
+			// Check if using MySQL DB
+			if( self.db.query !== undefined ) {
+			    self.db.query( query, q_callback );
+			}
+			// Check if using SQLite DB
+			else if( self.db.all !== undefined ) {
+			    self.db.all( query, q_callback );
+			}
+			else {
+			    return f({
+				"error": "Unsupported DB",
+				"message": "The database provided is not supported."
+			    });
+			}
 		    }
 		} catch (err) {
+		    console.log(err)
 		    r(err);
 		}
 	    }, function(error) {
-		if (isinstance(error, Error)) {
+		if ( error instanceof Error ) {
 		    r(error);
 		}
 		else {

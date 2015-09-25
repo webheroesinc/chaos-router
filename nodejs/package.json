@@ -1,12 +1,14 @@
 {
   "name": "chaosrouter",
-  "version": "0.1.6",
+  "version": "0.1.4",
   "description": "ERROR: No README data found!",
   "main": "chaosrouter.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Matthew Brisebois",
+  "author": {
+    "name": "Matthew Brisebois"
+  },
   "license": "GPLv3",
   "repository": {
     "type": "git",
@@ -16,8 +18,11 @@
     "url": "https://github.com/webheroesinc/chaos-router/issues"
   },
   "dependencies": {
-    "promise": "^7.0.4",
-    "restruct-data": "^0.1.4"
+    "restruct-data": "^0.1.7"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "readme": "ERROR: No README data found!",
+  "_id": "chaosrouter@0.1.4",
+  "_shasum": "effc9dfb74755ab377e7c8774c4d43dbc4e06eba",
+  "_from": "chaosrouter@^0.1.3"
 }
