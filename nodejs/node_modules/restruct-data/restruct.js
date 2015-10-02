@@ -220,7 +220,7 @@ function group_data(data, gkey) {
 	var d		= data[i];
 	var k		= fill(gkey, d);
 	if (k === 'undefined' || k === 'null' || k === undefined || k === null)
-	    return;
+	    continue;
 	if (Object.keys(groups).indexOf(k) === -1)
 	    groups[k]	= [];
 	groups[k].push(d);
