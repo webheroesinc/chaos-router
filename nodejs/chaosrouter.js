@@ -30,6 +30,9 @@ var methodlib = {
 function setdefault(value, d) {
     return value === undefined ? d : value;
 }
+function repeat(str, num) {
+    return new Array( num + 1 ).join( str );
+}
 function is_dict(d) {
     return d.constructor.name == 'Object';
 }
@@ -261,7 +264,29 @@ Endpoint.prototype.query		= function() {
     this.table		= this.config['.table'];
     this.where		= this.config['.where'];
     this.joins		= this.config['.join'];
+    this.columns	= this.config['.columns'];
 
+    if (this.columns === undefined) {
+	var columns	= '*';
+    }
+    else {
+	var columns	= [];
+	for(var i=0; i<this.columns.length; i++) {
+	    var column	= this.columns[i];
+	    if (typeof column === 'string')
+		columns.push(column);
+	    else if (Array.isArray(column) && column.length === 2) {
+		var c	= column[0];
+		var a	= column[1]
+		var nt	= Math.ceil( Math.max( (31-c.length)/8, 0 ) );
+		var t	= repeat("\t", nt);
+		var f	= "{0}{tabs}AS '{1}'";
+		columns.push(format(f, c, a, { tabs: t }));
+	    }
+	}
+	columns		= columns.join(",\n         ");
+    }
+    
     if (this.joins === undefined) {
 	var joins	= '';
     }
@@ -275,19 +300,22 @@ Endpoint.prototype.query		= function() {
 	    join[2].unshift(s);
             var c1	= format.apply( this, join[1] )
             var c2	= format.apply( this, join[2] )
-	    joins.push(format("{0} ON {1} = {2}", t,c1,c2))
+	    var nt	= Math.ceil( Math.max( (25-t.length)/8, 0 ) );
+	    var nt2	= Math.ceil( Math.max( (37-c1.length)/8, 0 ) );
+	    var tabs	= repeat("\t", nt);
+	    var tabs2	= repeat("\t", nt2);
+	    joins.push(format("{0}{tabs}ON {1}{tabs2}= {2}", t,c1,c2, {tabs: tabs, tabs2: tabs2}))
 	}
-	joins		= " LEFT JOIN " + joins.join(" LEFT JOIN ");
+	joins		= "\n    LEFT JOIN " + joins.join("\n    LEFT JOIN ");
     }
 
-    if (this.where === undefined) {
+    if (this.where === undefined)
 	var where	= '';
-    }
-    else {
-	var where	= format(" WHERE {0} ", fill(this.where, this.args));
-    }
-    var query		= format(" SELECT * FROM {table}{join}{where} ", {
+    else
+	var where	= format("\n   WHERE {0} ", fill(this.where, this.args));
+    var query		= format("  SELECT {columns}\n    FROM {table}{join}{where} ", {
 	'table': this.table,
+	'columns': columns,
 	'join': joins,
 	'where': where
     });
@@ -338,10 +366,11 @@ Endpoint.prototype.execute		= function() {
 			    });
 
 			var query		= self.query();
-
 			var q_callback		= function(err, all) {
-			    if(err !== undefined && err !== null)
+			    if(err !== undefined && err !== null) {
+				err.query	= query;
 				return f(err);
+			    }
 			    var result	= structure === null
 				? all
 				: restruct(all, structure);

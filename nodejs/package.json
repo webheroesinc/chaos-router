@@ -1,6 +1,6 @@
 {
   "name": "chaosrouter",
-  "version": "0.1.4",
+  "version": "0.1.8",
   "description": "ERROR: No README data found!",
   "main": "chaosrouter.js",
   "scripts": {
@@ -18,7 +18,8 @@
     "url": "https://github.com/webheroesinc/chaos-router/issues"
   },
   "dependencies": {
-    "restruct-data": "^0.1.7"
+    "promise": "^7.0.4",
+    "restruct-data": "^0.1.9"
   },
   "devDependencies": {},
   "readme": "ERROR: No README data found!",
