@@ -5,22 +5,22 @@ var fs		= require('fs');
 var util	= require('util');
 
 var validationlib = {
-    "is_digit": function(values, kwargs, db, callback) {
-	for(var i=0; i<values.length; i++) {
-	    if( isNaN(values[i]) ) {
-		return callback(false);
+    "is_digit": function(args, data, cb) {
+	for(var i=0; i<args.length; i++) {
+	    if( isNaN(args[i]) ) {
+		return cb(false);
 	    }
 	}
-	return callback(true);
+	return cb(true);
     },
-    "not_empty": function(values, kwargs, db, callback) {
+    "not_empty": function(args, data, cb) {
 	var ch	= true
-	for(var i=0; i<values.length; i++) {
-	    if( values[i].trim() === "" ) {
-		return callback(false);
+	for(var i=0; i<args.length; i++) {
+	    if( args[i].trim() === "" ) {
+		return cb(false);
 	    }
 	}
-	return callback(true);
+	return cb(true);
     }
 }
 
@@ -86,14 +86,14 @@ function fill(s, data) {
     return v;
 }
 
-function ChaosRouter(data, db, basepath) {
+function ChaosRouter(data, query, basepath) {
     if (! (this instanceof ChaosRouter))
-	return new ChaosRouter(data, db, basepath);
+	return new ChaosRouter(data, query, basepath);
     
     this.configfile	= null;
     this.basepath	= setdefault(basepath, '/');
-    this.db		= setdefault(db, null);
-
+    this.query		= setdefault(query, null);
+    
     
     if (is_dict(data))
 	this.config	= data;
@@ -101,9 +101,6 @@ function ChaosRouter(data, db, basepath) {
 	this.configfile	= data;
     else
 	throw new Error(format("Unrecognized data type: {0}", typeof data))
-}
-ChaosRouter.prototype.set_db	= function(db) {
-    this.db		= db;
 }
 ChaosRouter.prototype.extend_methods	= function(dict) {
     for( var k in dict) {
@@ -138,7 +135,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     var segs		= _p.split('/');
 
     if (!path)
-	return Endpoint(this.config, variables, parents, this.db);
+	return Endpoint(this.config, variables, parents, this.query);
 
     for (var i in segs) {
 	var seg		= segs[i];
@@ -177,7 +174,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	util._extend(config, data);
     }
 
-    return Endpoint(config, variables, parents, this.db);
+    return Endpoint(config, variables, parents, this.query);
 }
 
 function fill(s, data) {
@@ -192,22 +189,24 @@ function fill(s, data) {
     return v;
 }
 
-function Endpoint(config, path_vars, parents, db) {
+function Endpoint(config, path_vars, parents, query) {
     if (! (this instanceof Endpoint))
-	return new Endpoint(config, path_vars, parents, db);
+	return new Endpoint(config, path_vars, parents, query);
 
     this.parents	= parents;
     this.config		= config;
     this.args		= {
 	"path": path_vars
     }
-    this.db		= setdefault(db, null);
+    this.query		= setdefault(query, function(next) {
+	next(new Error("No query builder was provided"));
+    });
 }
 Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
     }
-    var reserved_keys	= ['db', 'value', 'path'];
+    var reserved_keys	= ['query', 'value', 'path'];
     for(var i=0; i<reserved_keys.length; i++) {
 	var reserved	= reserved_keys[i];
 	if (args[reserved])
@@ -243,7 +242,7 @@ Endpoint.prototype.validate	= function(validations) {
 	if (cmd === null)
 	    throw new Error(format("No validation method for rule {0}", rule));
 	promises.push(new Promise(function(f,r){
-	    cmd.call(validationlib, params, self.args, self.db, function(check) {
+	    cmd.call(validationlib, params, self.args, self.query, function(check) {
 		if (is_dict(check))
 		    r(check);
 		else if (check !== true) {
@@ -259,69 +258,6 @@ Endpoint.prototype.validate	= function(validations) {
 	}));
     }
     return Promise.all(promises);
-}
-Endpoint.prototype.query		= function() {
-    this.table		= this.config['.table'];
-    this.where		= this.config['.where'];
-    this.joins		= this.config['.join'];
-    this.columns	= this.config['.columns'];
-
-    if (this.columns === undefined) {
-	var columns	= '*';
-    }
-    else {
-	var columns	= [];
-	for(var i=0; i<this.columns.length; i++) {
-	    var column	= this.columns[i];
-	    if (typeof column === 'string')
-		columns.push(column);
-	    else if (Array.isArray(column) && column.length === 2) {
-		var c	= column[0];
-		var a	= column[1]
-		var nt	= Math.ceil( Math.max( (31-c.length)/8, 0 ) );
-		var t	= repeat("\t", nt);
-		var f	= "{0}{tabs}AS '{1}'";
-		columns.push(format(f, c, a, { tabs: t }));
-	    }
-	}
-	columns		= columns.join(",\n         ");
-    }
-    
-    if (this.joins === undefined) {
-	var joins	= '';
-    }
-    else {
-	var joins	= [];
-	for(var i=0; i<this.joins.length; i++) {
-	    var join	= this.joins[i];
-	    var t	= join[0];
-	    var s	= "`{0}`.`{1}`";
-	    join[1].unshift(s);
-	    join[2].unshift(s);
-            var c1	= format.apply( this, join[1] )
-            var c2	= format.apply( this, join[2] )
-	    var nt	= Math.ceil( Math.max( (25-t.length)/8, 0 ) );
-	    var nt2	= Math.ceil( Math.max( (37-c1.length)/8, 0 ) );
-	    var tabs	= repeat("\t", nt);
-	    var tabs2	= repeat("\t", nt2);
-	    joins.push(format("{0}{tabs}ON {1}{tabs2}= {2}", t,c1,c2, {tabs: tabs, tabs2: tabs2}))
-	}
-	joins		= "\n    LEFT JOIN " + joins.join("\n    LEFT JOIN ");
-    }
-
-    if (this.where === undefined)
-	var where	= '';
-    else
-	var where	= format("\n   WHERE {0} ", fill(this.where, this.args));
-    var query		= format("  SELECT {columns}\n    FROM {table}{join}{where} ", {
-	'table': this.table,
-	'columns': columns,
-	'join': joins,
-	'where': where
-    });
-
-    query		= format(query, this.args);
-    return query;
 }
 Endpoint.prototype.get_structure	= function() {
     var structure	= this.config['.structure'];
@@ -343,6 +279,12 @@ Endpoint.prototype.get_structure	= function() {
 }
 Endpoint.prototype.execute		= function() {
     var self		= this;
+    
+    this.table		= setdefault( this.config['.table'], null);
+    this.where		= setdefault( this.config['.where'], null);
+    this.joins		= setdefault( this.config['.join'], []);
+    this.columns	= setdefault( this.config['.columns'], []);
+    
     return new Promise(function(f,r) {
 	self.validate(self.config['.validate'])
 	    .then(function() {
@@ -353,9 +295,9 @@ Endpoint.prototype.execute		= function() {
 			if (cmd === undefined)
 			    throw new Error(format("No method named {0}", method));
 			else
-			    return cmd.call(methodlib, function(result) {
+			    return cmd.call(methodlib, self.args, function(result) {
 				f(result);
-			    }, self.args, self.db);
+			    });
 		    }
 		    else {
 			var structure	= self.get_structure();
@@ -365,8 +307,7 @@ Endpoint.prototype.execute		= function() {
 				"message": "Nothing configured for this endpoint"
 			    });
 
-			var query		= self.query();
-			var q_callback		= function(err, all) {
+			self.query.call(self, function(err, all) {
 			    if(err !== undefined && err !== null) {
 				err.query	= query;
 				return f(err);
@@ -375,22 +316,7 @@ Endpoint.prototype.execute		= function() {
 				? all
 				: restruct(all, structure);
 			    return f(result);
-			}
-
-			// Check if using MySQL DB
-			if( self.db.query !== undefined ) {
-			    self.db.query( query, q_callback );
-			}
-			// Check if using SQLite DB
-			else if( self.db.all !== undefined ) {
-			    self.db.all( query, q_callback );
-			}
-			else {
-			    return f({
-				"error": "Unsupported DB",
-				"message": "The database provided is not supported."
-			    });
-			}
+			});
 		    }
 		} catch (err) {
 		    console.log(err)

@@ -5,7 +5,7 @@ from faker		import Faker
 class Generator(object):
     def __init__(self):
 
-        db_name			= 'testing.sql'
+        db_name			= 'testing.sqlite'
         self.db			= sqlite3.connect(db_name)
         self.curs		= self.db.cursor()
         self.build()

@@ -11,7 +11,7 @@ all:
 	@echo "test:			This runs the chaosrouter test to prove it works :)"
 
 # Build Project Dockers
-test:		testing.sql $(DPACK)
+test:		testing.sqlite $(DPACK)
 	@if ! d=$(docker images | grep webheroes/chaosrouter); then			\
 	    echo "docker build -t webheroes/chaosrouter docker/webheroes/chaosrouter";	\
 	    docker build -t webheroes/chaosrouter docker/webheroes/chaosrouter;		\
@@ -20,8 +20,8 @@ test:		testing.sql $(DPACK)
 
 $(FAKER):
 	pip install faker
-testing.sql:		$(FAKER) generate.py
-	rm testing.sql	|| true
+testing.sqlite:		$(FAKER) generate.py
+	rm $@	|| true
 	python generate.py
 
 $(DPACK):		$(OPACK)
