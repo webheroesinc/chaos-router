@@ -277,7 +277,9 @@ Endpoint.prototype.get_structure	= function() {
     
     return structure;
 }
-Endpoint.prototype.execute		= function() {
+Endpoint.prototype.execute		= function(args) {
+    if (args) this.set_arguments(args);
+    
     var self		= this;
     
     this.table		= setdefault( this.config['.table'], null);
@@ -308,10 +310,8 @@ Endpoint.prototype.execute		= function() {
 			    });
 
 			self.query.call(self, function(err, all) {
-			    if(err !== undefined && err !== null) {
-				err.query	= query;
+			    if(err !== undefined && err !== null)
 				return f(err);
-			    }
 			    var result	= structure === null
 				? all
 				: restruct(all, structure);
@@ -329,7 +329,10 @@ Endpoint.prototype.execute		= function() {
 		else {
 		    f(error);
 		}
-	    });
+	    })
+	    // .catch(function(err) {
+	    // 	console.log(err);
+	    // });
     });
 }
 

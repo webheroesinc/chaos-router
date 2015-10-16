@@ -13,6 +13,9 @@
 		"phone": "{phone_number}",
 		"personality": "{personality}"
             }
+	},
+	"test_method": {
+	    ".method": "hello_world"
 	}
     }
 }
