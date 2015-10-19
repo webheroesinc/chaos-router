@@ -15,31 +15,32 @@ var knex = require('knex')({
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 
 
-var router	= chaosrouter('../routes.json', function(next) {
-    var knex		= this.args.knex;
-    var q		= knex.select();
+var router	= chaosrouter('../routes.json', {
+    "query": function(next) {
+	var knex	= this.args.knex;
+	var q		= knex.select();
 
-    for (var i in this.columns) {
-    	if (Array.isArray(c))
-    	    this.columns[i]	= this.columns[i].join(' as ');
-	q.column(this.columns[i]);
-    }
-    q.from(this.table);
-    for (var i=0; i<this.joins.length; i++) {
-	var join	= this.joins[i];
-	var t		= join[0];
-	var c1		= join[1].join('.');
-	var c2		= join[2].join('.');
-	q.leftJoin(t, c1, c2);
-    }
-    if (this.where)
-	q.where( knex.raw(fill(this.where, this.args)) );
+	for (var i in this.columns) {
+    	    if (Array.isArray(c))
+    		this.columns[i]	= this.columns[i].join(' as ');
+	    q.column(this.columns[i]);
+	}
+	q.from(this.table);
+	for (var i=0; i<this.joins.length; i++) {
+	    var join	= this.joins[i];
+	    var t	= join[0];
+	    var c1	= join[1].join('.');
+	    var c2	= join[2].join('.');
+	    q.leftJoin(t, c1, c2);
+	}
+	if (this.where)
+	    q.where( knex.raw(fill(this.where, this.args)) );
 
-    q.then(function(result) {
-	next(null, result);
-	console.log("Resolving that biznat")
-	return Promise.resolve(true);
-    });
+	q.then(function(result) {
+	    next(null, result);
+	    // return Promise.resolve(true);
+	});
+    }
 });
 router.extend_methods({
     "hello_world": function(data, cb) {
@@ -51,7 +52,6 @@ router.extend_methods({
 });
 
 knex.transaction(function(trx) {
-    console.log("Starting trx");
     endpoint1	= router.route('/get/people');
     var e1	= endpoint1.execute({
 	"knex": trx

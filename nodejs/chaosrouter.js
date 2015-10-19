@@ -86,13 +86,13 @@ function fill(s, data) {
     return v;
 }
 
-function ChaosRouter(data, query, basepath) {
+function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
-	return new ChaosRouter(data, query, basepath);
+	return new ChaosRouter(data, opts);
     
     this.configfile	= null;
-    this.basepath	= setdefault(basepath, '/');
-    this.query		= setdefault(query, null);
+    this.basepath	= setdefault(opts.basepath, '/');
+    this.query		= setdefault(opts.query, null);
     
     
     if (is_dict(data))
