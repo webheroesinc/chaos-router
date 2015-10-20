@@ -48,12 +48,26 @@ router.extend_methods({
 	    "title": "Hello World",
 	    "message": data.message
 	});
+    },
+    "ParentClass": {
+	"heythere": function(data, cb) {
+	    cb({
+		title: "Parent Class Test",
+		message: data.message
+	    })
+	},
+	"heythere": function(data, cb) {
+	    cb({
+		title: "Parent Class Test",
+		message: data.message
+	    })
+	}
     }
 });
 
 knex.transaction(function(trx) {
-    endpoint1	= router.route('/get/people');
-    var e1	= endpoint1.execute({
+    var endpoint1	= router.route('/get/people');
+    var e1		= endpoint1.execute({
 	"knex": trx
     })
 	.then(function (result) {
@@ -65,8 +79,8 @@ knex.transaction(function(trx) {
 	});
     e1.catch(printE);
 
-    endpoint2	= router.route('/get/test_method');
-    var e2	= endpoint2.execute({
+    var endpoint2	= router.route('/get/test_method');
+    var e2		= endpoint2.execute({
 	"knex": trx,
 	"message": "Travis Mottershead + Erika *{}*"
     })
@@ -79,7 +93,21 @@ knex.transaction(function(trx) {
 	});
     e2.catch(printE);
     
-    return Promise.all([e1, e2]);
+    var endpoint3	= router.route('/get/parent_class_test');
+    var e3		= endpoint3.execute({
+	"knex": trx,
+	"message": "this is function has a parent class"
+    })
+	.then(function (result) {
+	    console.log("Finish test 3");
+	    if (result.message === undefined) {
+		console.log( JSON.stringify(result, null, 4) );
+		throw new Error("Unexpected result");
+	    }
+	});
+    e3.catch(printE);
+    
+    return Promise.all([e1, e2, e3]);
 }).then(function() {
     console.log("Destroying knex context");
     knex.destroy();

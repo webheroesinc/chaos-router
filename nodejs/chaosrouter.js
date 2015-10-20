@@ -133,7 +133,6 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     // Remove leading and trailing slashes.
     var _p		= path.replace(/^\//, "").replace(/\/*$/, "")
     var segs		= _p.split('/');
-
     if (!path)
 	return Endpoint(this.config, variables, parents, this.query);
 
@@ -293,7 +292,17 @@ Endpoint.prototype.execute		= function(args) {
 		try {
 		    var method		= self.config['.method'];
 		    if (method !== undefined) {
-			var cmd		= methodlib[method];
+			method		= method.split('.');
+			var cmd		= null;
+			var meth_context	= methodlib;
+			for( var i in method ) {
+			    var meth	= method[i];
+			    if( is_dict( meth_context[meth] ) ) {
+				meth_context	= meth_context[meth]
+			    } else {
+				cmd	= meth_context[ meth ];
+			    }
+			}
 			if (cmd === undefined)
 			    throw new Error(format("No method named {0}", method));
 			else

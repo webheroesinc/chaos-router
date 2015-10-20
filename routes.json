@@ -16,6 +16,9 @@
 	},
 	"test_method": {
 	    ".method": "hello_world"
+	},
+	"parent_class_test": {
+	    ".method": "ParentClass.heythere"
 	}
     }
 }
