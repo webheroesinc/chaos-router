@@ -55,61 +55,77 @@ router.extend_methods({
 		title: "Parent Class Test",
 		message: data.message
 	    })
-	},
-	"heythere": function(data, cb) {
-	    cb({
-		title: "Parent Class Test",
-		message: data.message
-	    })
 	}
     }
 });
 
-knex.transaction(function(trx) {
-    var endpoint1	= router.route('/get/people');
-    var e1		= endpoint1.execute({
-	"knex": trx
-    })
-	.then(function (result) {
-	    console.log("Finish test 1");
-	    if (Object.keys(result).length === 0) {
-		console.log( JSON.stringify(result, null, 4) );
-		throw new Error("Unexpected result");
+var tests		= [];
+var failures		= 0;
+var passes		= 0;
+function test_endpoint( endpoint, data, cb ) {
+    var ep		= router.route(endpoint);
+    var e		= ep.execute(data)
+	.then(function(result) {
+	    return cb(result)
+	}).then(function(test) {
+	    var status	= test === true ? "PASSED": "FAILED"
+	    console.log(status, endpoint );
+	    if(test !== true) {
+		console.log( JSON.stringify(test, null, 4) );
+		failures++;
 	    }
-	});
-    e1.catch(printE);
-
-    var endpoint2	= router.route('/get/test_method');
-    var e2		= endpoint2.execute({
+	    else passes++;
+	})
+    e.catch(printE);
+    tests.push(e);
+}
+knex.transaction(function(trx) {
+    test_endpoint('/get/people', {
+	"knex": trx
+    }, function(result) {
+	if (Object.keys(result).length === 0) {
+	    return ["Unexpected result", result];
+	}
+	return true;
+    })
+    
+    test_endpoint('/get/test_method', {
 	"knex": trx,
 	"message": "Travis Mottershead + Erika *{}*"
-    })
-	.then(function (result) {
-	    console.log("Finish test 2");
-	    if (result.message === undefined) {
-		console.log( JSON.stringify(result, null, 4) );
-		throw new Error("Unexpected result");
-	    }
-	});
-    e2.catch(printE);
-    
-    var endpoint3	= router.route('/get/parent_class_test');
-    var e3		= endpoint3.execute({
+    }, function (result) {
+	if (result.message === undefined)
+	    return ["Unexpected result", result];
+	return true;
+    });
+
+    test_endpoint('/get/parent_class_test', {
 	"knex": trx,
-	"message": "this is function has a parent class"
-    })
-	.then(function (result) {
-	    console.log("Finish test 3");
-	    if (result.message === undefined) {
-		console.log( JSON.stringify(result, null, 4) );
-		throw new Error("Unexpected result");
-	    }
-	});
-    e3.catch(printE);
-    
-    return Promise.all([e1, e2, e3]);
+	"message": "this function has a parent class"
+    }, function (result) {
+	if (result.message === undefined)
+	    return ["Unexpected result", result];
+	return true;
+    });
+
+    test_endpoint('/get/responses/static', null, function (result) {
+    	if (result.message !== "this is inline static data") {
+	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
+    test_endpoint('/get/responses/file', null, function (result) {
+	console.log(result.message)
+    	if (result.message !== "this is a static file response") {
+	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
+    return Promise.all(tests);
 }).then(function() {
-    console.log("Destroying knex context");
+    console.log("\nPasses:\t\t", passes);
+    console.log("Failures:\t", failures);
+    console.log("\nDestroying knex context");
     knex.destroy();
 }).catch(printE);
-

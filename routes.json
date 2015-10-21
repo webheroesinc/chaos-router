@@ -19,6 +19,16 @@
 	},
 	"parent_class_test": {
 	    ".method": "ParentClass.heythere"
+	},
+	"responses": {
+	    "static": {
+		".response": {
+		    "message": "this is inline static data"
+		}
+	    },
+	    "file": {
+		".response": "./static_result.json"
+	    }
 	}
     }
 }

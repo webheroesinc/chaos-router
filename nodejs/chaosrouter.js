@@ -290,8 +290,29 @@ Endpoint.prototype.execute		= function(args) {
 	self.validate(self.config['.validate'])
 	    .then(function() {
 		try {
-		    var method		= self.config['.method'];
-		    if (method !== undefined) {
+		    var response	= self.config['.response']
+		    if( response ) {
+			if ( typeof response === "string" ) {
+			    if(! fs.existsSync(response) ) {
+				return f({
+				    error: "Invalid File",
+				    message: "The response file was not found"
+				})
+			    }
+			    response	= fs.readFileSync( response, 'utf8' );
+			    try {
+				response= JSON.parse(response)
+			    } catch(err) {
+				return f({
+				    error: "Invalid File",
+				    message: "The response file was not valid JSON"
+				})
+			    }
+			}
+			return f(response);
+		    }
+		    else if (method !== self.config['.method']) {
+			var method		= self.config['.method'];
 			method		= method.split('.');
 			var cmd		= null;
 			var meth_context	= methodlib;
