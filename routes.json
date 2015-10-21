@@ -3,15 +3,16 @@
 	"people": {
 	    ".table": "people",
             ".structure": {
-		".key": "{person_id}",
-		"id": ":< person_id",
-		"name": {
-		    "first": "{first_name}",
-		    "last": "{last_name}",
-		    "full": "{first_name} {last_name}"
-		},
-		"phone": "{phone_number}",
-		"personality": "{personality}"
+		"< person_id": {
+		    "id": "< person_id",
+		    "name": {
+			"first": "< first_name",
+			"last": "< last_name",
+			"full": "{first_name} {last_name}"
+		    },
+		    "phone": "< phone_number",
+		    "personality": "< personality"
+		}
             }
 	},
 	"test_method": {

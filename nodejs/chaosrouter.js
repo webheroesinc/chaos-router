@@ -241,7 +241,7 @@ Endpoint.prototype.validate	= function(validations) {
 	if (cmd === null)
 	    throw new Error(format("No validation method for rule {0}", rule));
 	promises.push(new Promise(function(f,r){
-	    cmd.call(validationlib, params, self.args, self.query, function(check) {
+	    cmd.call(validationlib, params, self.args, function(check) {
 		if (is_dict(check))
 		    r(check);
 		else if (check !== true) {
@@ -366,4 +366,6 @@ Endpoint.prototype.execute		= function(args) {
     });
 }
 
+ChaosRouter.restruct	= restruct;
+ChaosRouter.populater	= restruct.populater;
 module.exports		= ChaosRouter;

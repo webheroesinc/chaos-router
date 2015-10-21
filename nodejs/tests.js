@@ -21,7 +21,7 @@ var router	= chaosrouter('../routes.json', {
 	var q		= knex.select();
 
 	for (var i in this.columns) {
-    	    if (Array.isArray(c))
+    	    if (Array.isArray(this.columns[i]))
     		this.columns[i]	= this.columns[i].join(' as ');
 	    q.column(this.columns[i]);
 	}
@@ -59,6 +59,10 @@ router.extend_methods({
     }
 });
 
+function json(d,f) {
+    return JSON.stringify(d, null, f===false?null:4);
+}
+
 var tests		= [];
 var failures		= 0;
 var passes		= 0;
@@ -66,12 +70,13 @@ function test_endpoint( endpoint, data, cb ) {
     var ep		= router.route(endpoint);
     var e		= ep.execute(data)
 	.then(function(result) {
+	    // console.log( json(result) );
 	    return cb(result)
 	}).then(function(test) {
 	    var status	= test === true ? "PASSED": "FAILED"
 	    console.log(status, endpoint );
 	    if(test !== true) {
-		console.log( JSON.stringify(test, null, 4) );
+		console.log( json(test) );
 		failures++;
 	    }
 	    else passes++;
@@ -83,7 +88,7 @@ knex.transaction(function(trx) {
     test_endpoint('/get/people', {
 	"knex": trx
     }, function(result) {
-	if (Object.keys(result).length === 0) {
+	if (Object.keys(result).length < 80) {
 	    return ["Unexpected result", result];
 	}
 	return true;
