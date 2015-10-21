@@ -1,29 +1,36 @@
 
 var Promise	= require('promise');
 var restruct	= require('restruct-data');
+var fill	= restruct.populater;
 var fs		= require('fs');
 var util	= require('util');
+var server	= require('./server');
+var bunyan	= require('bunyan');
+
+var log		= bunyan.createLogger({
+    name: "ChaosRouter",
+    level: 'trace'
+});
 
 var validationlib = {
-    "is_digit": function(args, data, cb) {
-	for(var i=0; i<args.length; i++) {
-	    if( isNaN(args[i]) ) {
-		return cb(false);
-	    }
-	}
-	return cb(true);
-    },
-    "not_empty": function(args, data, cb) {
-	var ch	= true
-	for(var i=0; i<args.length; i++) {
-	    if( args[i].trim() === "" ) {
-		return cb(false);
-	    }
-	}
-	return cb(true);
-    }
+    // "is_digit": function(args, data, cb) {
+    // 	for(var i=0; i<args.length; i++) {
+    // 	    if( isNaN(args[i]) ) {
+    // 		return cb(false);
+    // 	    }
+    // 	}
+    // 	return cb(true);
+    // },
+    // "not_empty": function(args, data, cb) {
+    // 	var ch	= true
+    // 	for(var i=0; i<args.length; i++) {
+    // 	    if( args[i].trim() === "" ) {
+    // 		return cb(false);
+    // 	    }
+    // 	}
+    // 	return cb(true);
+    // }
 }
-
 var methodlib = {
 }
 
@@ -55,36 +62,34 @@ function dictcopy(dict) {
     return copy
 
 }
-function format(str) {
-    for( var i=1; i < arguments.length; i++ ) {
-        var arg	= arguments[i];
-        if( is_dict(arg) ) {
-            for( var k in arg ) {
-                var re	= new RegExp( RegExp.escape("{"+k+"}"), 'g' );
-                str		= str.replace(re, arg[k]);
-            }
-        }
-        else {
-            var re	= new RegExp( RegExp.escape("{"+(i-1)+"}"), 'g' );
-            str	= str.replace(re, arg);
-        }
-    }
-    return str;
-}
-function fill(s, data) {
-    if (s.indexOf(':<') === 0)
-	return data[s.slice(2).trim() ]
 
-    var v	= format(s, data)
-    if (s.indexOf(':') === 0) {
-	try {
-	    v	= eval(v.slice(1));
-	} catch (err) {
-	    v	= null;
-	}
+function defaultKnexQueryBuilder(db, next) {
+    var knex		= db;
+    var q		= knex.select();
+
+    for (var i in this.columns) {
+    	if (Array.isArray(this.columns[i]))
+    	    this.columns[i]	= this.columns[i].join(' as ');
+	q.column(this.columns[i]);
     }
-    return v;
+    q.from(this.table);
+    for (var i=0; i<this.joins.length; i++) {
+	var join	= this.joins[i];
+	var t		= join[0];
+	var c1		= join[1].join('.');
+	var c2		= join[2].join('.');
+	q.leftJoin(t, c1, c2);
+    }
+    if (this.where)
+	q.where( knex.raw(fill(this.where, this.args)) );
+
+    q.then(function(result) {
+	next(null, result);
+    }, function(err) {
+	next(err, null);
+    });
 }
+
 
 function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
@@ -92,15 +97,22 @@ function ChaosRouter(data, opts) {
     
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
-    this.query		= setdefault(opts.query, null);
-    
-    
+    this.db		= opts.db;
+    this.query		= setdefault(opts.query, defaultKnexQueryBuilder);
+
+    if (this.db === undefined && opts.query === undefined)
+	throw new Error("db and query options cannot both be empty.  One or both are required");
+
+    if (opts.query === undefined)
+	if (this.db.name !== 'knex')
+	    throw new Error("The default queryBuilder requires a knex db connection object");
+
     if (is_dict(data))
 	this.config	= data;
     else if (is_string(data))
 	this.configfile	= data;
     else
-	throw new Error(format("Unrecognized data type: {0}", typeof data))
+	throw new Error("Unrecognized data type: "+typeof data);
 }
 ChaosRouter.prototype.extend_methods	= function(dict) {
     for( var k in dict) {
@@ -173,29 +185,19 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	util._extend(config, data);
     }
 
-    return Endpoint(config, variables, parents, this.query);
+    return Endpoint(config, variables, parents, this.query, this.db);
 }
 
-function fill(s, data) {
-    var v	= format(s, data)
-    if (s.indexOf(':') === 0) {
-	try {
-	    v	= eval(v.slice(1));
-	} catch (err) {
-	    v	= null;
-	}
-    }
-    return v;
-}
-
-function Endpoint(config, path_vars, parents, query) {
+function Endpoint(config, path_vars, parents, query, db) {
     if (! (this instanceof Endpoint))
-	return new Endpoint(config, path_vars, parents, query);
+	return new Endpoint(config, path_vars, parents, query, db);
 
     this.parents	= parents;
     this.config		= config;
+    this.db		= db;
     this.args		= {
-	"path": path_vars
+	"path": path_vars,
+	"db": db
     }
     this.query		= setdefault(query, function(next) {
 	next(new Error("No query builder was provided"));
@@ -205,7 +207,7 @@ Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
     }
-    var reserved_keys	= ['query', 'value', 'path'];
+    var reserved_keys	= ['path', 'db'];
     for(var i=0; i<reserved_keys.length; i++) {
 	var reserved	= reserved_keys[i];
 	if (args[reserved])
@@ -223,7 +225,7 @@ Endpoint.prototype.validate	= function(validations) {
     for (var k in validations) {
 	var rule	= validations[k];
 	if (! util.isArray(rule) || rule.length === 0)
-	    throw new Error(format("Failed to process rule: {0}", rule));
+	    throw new Error("Failed to process rule: "+rule);
 	var command	= rule[0];
 	var params	= [];
 	var _p		= rule.slice(1);
@@ -239,13 +241,13 @@ Endpoint.prototype.validate	= function(validations) {
 	}
 	var cmd		= validationlib[command];
 	if (cmd === null)
-	    throw new Error(format("No validation method for rule {0}", rule));
+	    throw new Error("No validation method for rule "+rule);
 	promises.push(new Promise(function(f,r){
 	    cmd.call(validationlib, params, self.args, function(check) {
 		if (is_dict(check))
 		    r(check);
 		else if (check !== true) {
-		    var message	= format("Failed at rule {0} with values {1}", rule, params);
+		    var message	= "Failed at rule "+rule+" with values "+params;
 		    r({
 			"error": "Failed Validation",
 			"message": is_string(check) ? check : message
@@ -325,7 +327,7 @@ Endpoint.prototype.execute		= function(args) {
 			    }
 			}
 			if (cmd === undefined)
-			    throw new Error(format("No method named {0}", method));
+			    throw new Error("No method named "+method);
 			else
 			    return cmd.call(methodlib, self.args, function(result) {
 				f(result);
@@ -339,7 +341,7 @@ Endpoint.prototype.execute		= function(args) {
 				"message": "Nothing configured for this endpoint"
 			    });
 
-			self.query.call(self, function(err, all) {
+			self.query.call(self, self.db, function(err, all) {
 			    if(err !== undefined && err !== null)
 				return f(err);
 			    var result	= structure === null
@@ -359,13 +361,14 @@ Endpoint.prototype.execute		= function(args) {
 		else {
 		    f(error);
 		}
-	    })
-	    // .catch(function(err) {
-	    // 	console.log(err);
-	    // });
+	    }).catch(function(err) {
+		f(err);
+	    });
     });
 }
 
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
+ChaosRouter.server	= server;
+ChaosRouter.coauthSDK	= require('coauth-sdk');
 module.exports		= ChaosRouter;
