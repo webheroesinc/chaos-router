@@ -55,8 +55,38 @@ var log			= bunyan.createLogger({
 // });
 
 function serverInit(opts) {
+    var hashFiles	= !!opts.hashUploadedFiles || false;
+    var hashEncoding	= opts.hashEncoding || 'sha1';
+
+    if (crypto.getHashes().indexOf(hashEncoding) === -1)
+	throw new Error(hashEncoding+" is not a supported crypto hash algorithm");
+    
     var preUpload	= opts.preUpload || function(r,r,n) { n() };
-    var postUpload	= opts.postUpload || function(r,r,n) { n() };
+    var _postUpload_	= opts.postUpload || function(r,r,n) { n() };
+    var postUpload	= function(req, res, next) {
+	if (!hashFiles || !req.files || !req.files.length)
+	    return _postUpload_(req, res, next);
+	
+	var count	= 0;
+	for(var i=0; i<req.files.length; i++) {
+	    var file	= req.files[i];
+	    var fd	= fs.createReadStream(file.path);
+	    var hash	= crypto.createHash(hashEncoding);
+	    hash.setEncoding('hex');
+
+	    function tmp(hash, file) {
+		fd.on('end', function() {
+		    count++;
+		    hash.end();
+		    file.hash		= hash.read();
+		    if (count >= req.files.length)
+			_postUpload_(req, res, next);
+		});
+		fd.pipe(hash);
+	    }
+	    tmp(hash, file);
+	}
+    }
 
     if (typeof preUpload !== 'function' || typeof postUpload !== 'function')
 	throw new Error("preUpload and postUpload must be functions(req, res, next) [dont forget to call next()]");
@@ -91,7 +121,9 @@ function serverInit(opts) {
 		cb(null, '/tmp');
 	},
 	filename: function(req, file, cb) {
-	    var name	= [uuid.v4().replace(/-/g,''), file.originalname.split('.').pop()].join('.');
+	    file.ext	= file.originalname.split('.').pop();
+	    var guid	= uuid.v4();
+	    var name	= [guid, file.ext].join('.');
 	    cb(null, name);
 	}
     })

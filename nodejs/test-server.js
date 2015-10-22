@@ -1,4 +1,5 @@
 
+var fs			= require('fs');
 var bunyan		= require('bunyan');
 var knexlib		= require('knex');
 var ChaosRouter		= require('./chaosrouter');
@@ -54,6 +55,8 @@ var server		= ChaosServer({
 	}
 	next();
     },
+    hashUploadedFiles: true,
+    hashEncoding: 'sha1',
     preUpload: function(req, res, next) {
 	var allowed	= req.auth.user_level === 0;
 	if (!allowed)
@@ -65,33 +68,13 @@ var server		= ChaosServer({
 	if (!req.files || !req.files.length)
 	    return next();
 	
-	var count	= 0;
 	for(var i=0; i<req.files.length; i++) {
 	    var file	= req.files[i];
-	    var fd	= fs.createReadStream(file.path);
-	    var hash	= crypto.createHash('sha1');
-	    hash.setEncoding('hex');
-
-	    function tmp(hash, file) {
-		fd.on('end', function() {
-		    count++;
-		    hash.end();
-
-		    var hashed	= hash.read();
-		    var ext		= file.filename.split(/[. ]+/).pop();
-		    var new_name	= hashed+'.'+ext;
-		    var new_path	= file.destination+"/"+new_name;
-		    fs.renameSync(file.path, new_path);
-		    file.filename	= new_name;
-		    file.path	= new_path;
-		    if (count >= req.files.length)
-			next();
-		});
-		fd.pipe(hash);
-	    }
-	    tmp(hash, file);
+	    var oldpath	= file.path;
+	    file.path	= './uploads/'+file.hash+'.'+file.ext;
+	    fs.renameSync(oldpath, file.path);
 	}
-	// next('uploads/'+[now.getFullYear(), now.getMonth(), now.getDate()].join('/') + filename);
+	next();
     }
 });
 
@@ -104,6 +87,7 @@ server.use(server.upload.array('media'), function (req, res, next) {
 });
 server.use('/api', function (req, res) {
     var endpoint	= router.route(req.path);
+    log.info(req.path, endpoint);
     if (endpoint === false) {
 	res.reply({
             "error": "Wrong Path",
@@ -137,12 +121,4 @@ server.use('/api', function (req, res) {
 	});
     }
 });
-server.use('/', function (req, res) {
-    log.info("Doing nothing for request", req.path);
-    res.reply({
-        "error": "No Website",
-        "message": "Go to /api/<version>",
-    });
-});
-
 server.listen(8000);
