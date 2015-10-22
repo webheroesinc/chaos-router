@@ -5,8 +5,7 @@ function printE(err) {
 
 var Promise		= require('promise');
 var chaosrouter		= require('./chaosrouter.js');
-var sqlite3		= require('sqlite3').verbose();
-var knex = require('knex')({
+var knex		= require('knex')({
     client: 'sqlite',
     connection: {
 	filename: '../testing.sqlite'
@@ -16,31 +15,7 @@ knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 
 
 var router	= chaosrouter('../routes.json', {
-    "query": function(next) {
-	var knex	= this.args.knex;
-	var q		= knex.select();
-
-	for (var i in this.columns) {
-    	    if (Array.isArray(this.columns[i]))
-    		this.columns[i]	= this.columns[i].join(' as ');
-	    q.column(this.columns[i]);
-	}
-	q.from(this.table);
-	for (var i=0; i<this.joins.length; i++) {
-	    var join	= this.joins[i];
-	    var t	= join[0];
-	    var c1	= join[1].join('.');
-	    var c2	= join[2].join('.');
-	    q.leftJoin(t, c1, c2);
-	}
-	if (this.where)
-	    q.where( knex.raw(fill(this.where, this.args)) );
-
-	q.then(function(result) {
-	    next(null, result);
-	    // return Promise.resolve(true);
-	});
-    }
+    db: knex
 });
 router.extend_methods({
     "hello_world": function(data, cb) {
@@ -70,24 +45,22 @@ function test_endpoint( endpoint, data, cb ) {
     var ep		= router.route(endpoint);
     var e		= ep.execute(data)
 	.then(function(result) {
-	    // console.log( json(result) );
 	    return cb(result)
 	}).then(function(test) {
 	    var status	= test === true ? "PASSED": "FAILED"
-	    console.log(status, endpoint );
 	    if(test !== true) {
-		console.log( json(test) );
+		console.log(test[0], endpoint);
 		failures++;
 	    }
-	    else passes++;
+	    else
+		passes++;
 	})
     e.catch(printE);
     tests.push(e);
 }
 knex.transaction(function(trx) {
-    test_endpoint('/get/people', {
-	"knex": trx
-    }, function(result) {
+    router.db	= trx;
+    test_endpoint('/get/people', null, function(result) {
 	if (Object.keys(result).length < 80) {
 	    return ["Unexpected result", result];
 	}
@@ -95,34 +68,31 @@ knex.transaction(function(trx) {
     })
     
     test_endpoint('/get/test_method', {
-	"knex": trx,
-	"message": "Travis Mottershead + Erika *{}*"
+    	"message": "Travis Mottershead + Erika *{}*"
     }, function (result) {
-	if (result.message === undefined)
-	    return ["Unexpected result", result];
-	return true;
+    	if (result.message === undefined)
+    	    return ["Unexpected result", result];
+    	return true;
     });
 
     test_endpoint('/get/parent_class_test', {
-	"knex": trx,
-	"message": "this function has a parent class"
+    	"message": "this function has a parent class"
     }, function (result) {
-	if (result.message === undefined)
-	    return ["Unexpected result", result];
-	return true;
+    	if (result.message === undefined)
+    	    return ["Unexpected result", result];
+    	return true;
     });
 
     test_endpoint('/get/responses/static', null, function (result) {
     	if (result.message !== "this is inline static data") {
-	    return ["Unexpected result", result] ;
+    	    return ["Unexpected result", result] ;
     	}
     	return true;
     });
 
     test_endpoint('/get/responses/file', null, function (result) {
-	console.log(result.message)
     	if (result.message !== "this is a static file response") {
-	    return ["Unexpected result", result] ;
+    	    return ["Unexpected result", result] ;
     	}
     	return true;
     });

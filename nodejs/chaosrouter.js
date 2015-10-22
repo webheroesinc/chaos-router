@@ -37,9 +37,6 @@ var methodlib = {
 function setdefault(value, d) {
     return value === undefined ? d : value;
 }
-function repeat(str, num) {
-    return new Array( num + 1 ).join( str );
-}
 function is_dict(d) {
     return d.constructor.name == 'Object';
 }
@@ -67,26 +64,31 @@ function defaultKnexQueryBuilder(db, next) {
     var knex		= db;
     var q		= knex.select();
 
+    q.from(this.table);
+    
     for (var i in this.columns) {
     	if (Array.isArray(this.columns[i]))
     	    this.columns[i]	= this.columns[i].join(' as ');
-	q.column(this.columns[i]);
+    	q.column(this.columns[i]);
     }
-    q.from(this.table);
+    
     for (var i=0; i<this.joins.length; i++) {
-	var join	= this.joins[i];
-	var t		= join[0];
-	var c1		= join[1].join('.');
-	var c2		= join[2].join('.');
-	q.leftJoin(t, c1, c2);
+    	var join	= this.joins[i];
+    	var t		= join[0];
+    	var c1		= join[1].join('.');
+    	var c2		= join[2].join('.');
+    	q.leftJoin(t, c1, c2);
     }
+    
     if (this.where)
-	q.where( knex.raw(fill(this.where, this.args)) );
+    	q.where( knex.raw(fill(this.where, this.args)) );
 
     q.then(function(result) {
-	next(null, result);
+        next(null, result);
     }, function(err) {
-	next(err, null);
+        next(err, null);
+    }).catch(function(err) {
+        next(err, null);
     });
 }
 

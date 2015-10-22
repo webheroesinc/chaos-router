@@ -54,14 +54,6 @@ var log			= bunyan.createLogger({
 //     });
 // });
 
-// function http_reply(req, res, data) {
-//     res.set('Content-Type', 'application/json');
-//     if (req.get('x-requested-with') === undefined)
-// 	res.send( JSON.stringify(data, null, 4) );
-//     else
-// 	res.send( JSON.stringify(data) );
-// }
-
 function serverInit(opts) {
     var preUpload	= opts.preUpload || function(r,r,n) { n() };
     var postUpload	= opts.postUpload || function(r,r,n) { n() };
