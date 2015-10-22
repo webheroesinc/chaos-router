@@ -31,5 +31,8 @@
 		".response": "./static_result.json"
 	    }
 	}
+    },
+    "upload": {
+	".method": "uploadTest"
     }
 }

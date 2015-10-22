@@ -1,4 +1,6 @@
 
+var fs			= require('fs');
+var crypto		= require('crypto');
 var bunyan		= require('bunyan');
 var knexlib		= require('knex');
 var ChaosRouter		= require('./chaosrouter');
@@ -28,6 +30,10 @@ var router		= ChaosRouter('../routes.json', {
     db: knex,
     basepath: 'api'
 });
+
+var methods		= require('./test-methods');
+router.extend_methods(methods);
+
 var server		= ChaosServer({
     static: "public",
     auth: function(req, res, next) {
@@ -56,12 +62,14 @@ var server		= ChaosServer({
     },
     preUpload: function(req, res, next) {
 	var allowed	= req.auth.user_level === 0;
+	console.log("preUpload Running");
 	if (!allowed)
 	    next(new Error("Permission denied to upload"));
 	else
 	    next();
     },
     postUpload: function(req, res, next) {
+	console.log("postUpload Running");
 	if (!req.files || !req.files.length)
 	    return next();
 	
