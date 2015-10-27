@@ -28,7 +28,46 @@
 		}
 	    },
 	    "file": {
-		".response": "./static_result.json"
+		".response": "../static_result.json"
+	    }
+	},
+	"test_validate": {
+	    ":id": {
+		".validate": [
+		    ["required_not_empty", "< path.id"]
+		],
+		".table": "people",
+		".where": "person_id = {path.id}",
+		".structure": {
+		    "id": "= {person_id}",
+		    "name": {
+			"first": "< first_name",
+			"last": "< last_name",
+			"full": "{first_name} {last_name}"
+		    },
+		    "phone": "< phone_number",
+		    "personality": "< personality"
+		}
+	    },
+	    "fail_false": {
+		".validate": [
+		    ["fail_false", "hello", "world"]
+		]
+	    },
+	    "fail_message": {
+		".validate": [
+		    ["fail_message", "hello", "world"]
+		]
+	    },
+	    "fail_error": {
+		".validate": [
+		    ["fail_error", "hello", "world"]
+		]
+	    },
+	    "class_method": {
+		".validate": [
+		    ["TestValidationClass.required_not_empty", "", "= []"]
+		]
 	    }
 	}
     },
