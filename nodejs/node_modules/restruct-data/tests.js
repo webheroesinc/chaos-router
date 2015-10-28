@@ -82,6 +82,19 @@ var struct	= {
 	}
     }]
 }
+var data	= restruct(result, struct);
+console.log(json(data,true))
 
+restruct.flattenTrigger = '__array__';
+var struct	= {
+    "genders": {
+	"__array__": true,
+	"< gender": {
+	    "__array__": true,
+	    0: "= this.age > 25",
+	    1: "{first}"
+	}
+    }
+}
 var data	= restruct(result, struct);
 console.log(json(data,true))
