@@ -71,7 +71,6 @@ function defaultKnexQueryBuilder(db, next) {
     	    this.columns[i]	= this.columns[i].join(' as ');
     	q.column(this.columns[i]);
     }
-    
     for (var i=0; i<this.joins.length; i++) {
     	var join	= this.joins[i];
     	var t		= join[0];
@@ -82,6 +81,11 @@ function defaultKnexQueryBuilder(db, next) {
     
     if (this.where)
     	q.where( knex.raw(fill(this.where, this.args)) );
+
+    // To log the query, uncomment:
+    // q.on('query', function(data) {
+    // 	console.log(data);
+    // });
 
     q.then(function(result) {
         next(null, result);
@@ -241,8 +245,8 @@ Endpoint.prototype.validate	= function(validations) {
 	    }
 	    params.push(value);
 	}
-	var cmd		= validationlib[command];
-	if (cmd === null)
+	var cmd		= eval("validationlib."+command);
+	if (cmd === null || cmd === undefined)
 	    throw new Error("No validation method for rule "+rule);
 	promises.push(new Promise(function(f,r){
 	    cmd.call(validationlib, params, self.args, function(check) {
@@ -282,7 +286,7 @@ Endpoint.prototype.get_structure	= function() {
 }
 Endpoint.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
-    
+
     var self		= this;
     
     this.table		= setdefault( this.config['.table'], null);
@@ -345,7 +349,7 @@ Endpoint.prototype.execute		= function(args) {
 
 			self.query.call(self, self.db, function(err, all) {
 			    if(err !== undefined && err !== null)
-				return f(err);
+				return r(err);
 			    var result	= structure === null
 				? all
 				: restruct(all, structure);
