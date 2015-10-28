@@ -69,6 +69,26 @@
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
 	    }
+	},
+	"testBase": {
+	    ".base": "../secondBase",
+	    ".where": "person_id = 1"
+	},
+	"secondBase": {
+	    ".base": "../baseTest",
+	    ".structure": {
+		"id": "= {person_id}",
+		"name": {
+		    "first": "< first_name",
+		    "last": "< last_name",
+		    "full": "{first_name} {last_name}"
+		},
+		"phone": "< phone_number",
+		"personality": "< personality"
+	    }
+	},
+	"baseTest": {
+	    ".table": "people"
 	}
     },
     "upload": {

@@ -97,6 +97,13 @@ knex.transaction(function(trx) {
     	return true;
     });
 
+    test_endpoint('/get/testBase', null, function (result) {
+    	if (result.id === undefined) {
+    	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
     return Promise.all(tests);
 }).then(function() {
     console.log("\nPasses:\t\t", passes);

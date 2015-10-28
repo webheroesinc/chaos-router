@@ -13,23 +13,6 @@ var log		= bunyan.createLogger({
 });
 
 var validationlib = {
-    // "is_digit": function(args, data, cb) {
-    // 	for(var i=0; i<args.length; i++) {
-    // 	    if( isNaN(args[i]) ) {
-    // 		return cb(false);
-    // 	    }
-    // 	}
-    // 	return cb(true);
-    // },
-    // "not_empty": function(args, data, cb) {
-    // 	var ch	= true
-    // 	for(var i=0; i<args.length; i++) {
-    // 	    if( args[i].trim() === "" ) {
-    // 		return cb(false);
-    // 	    }
-    // 	}
-    // 	return cb(true);
-    // }
 }
 var methodlib = {
 }
@@ -82,10 +65,7 @@ function defaultKnexQueryBuilder(db, next) {
     if (this.where)
     	q.where( knex.raw(fill(this.where, this.args)) );
 
-    // To log the query, uncomment:
-    // q.on('query', function(data) {
-    // 	console.log(data);
-    // });
+    // log.debug("Query: \n"+q.toString());
 
     q.then(function(result) {
         next(null, result);
@@ -154,34 +134,46 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     if (!path)
 	return Endpoint(this.config, variables, parents, this.query);
 
+    var last_seg;
     for (var i in segs) {
 	var seg		= segs[i];
+
 	if (seg === "..") {
-	    data	= parents.pop()[1];
-	    continue;
+	    // We want to exit the current data and get the parent
+	    // space.  Get it from the parents list.
+	    var parent	= parents.pop();
+	    seg		= parent[0];
+	    data	= parent[1];
 	}
+	else {
+	    // We are diving deeper into data.  Add the current data
+	    // under the last_seg key in the parent list.
+	    if (last_seg !== undefined)
+		parents.push([last_seg, data]);
 
-	if (data[seg] === undefined) {
-	    var vkeys	= [];
-	    var _keys	= Object.keys(data);
-	    for( var k in _keys ){
-		var v	=  _keys[k];
-		if (v.trim().indexOf(':') === 0)
-		    vkeys.push(v.trim());
+	    // Then we figure out what the new current data is meant to be.	    
+	    if (data[seg] === undefined) {
+		var vkeys	= [];
+		var _keys	= Object.keys(data);
+		for( var k in _keys ){
+		    var v	=  _keys[k];
+		    if (v.trim().indexOf(':') === 0)
+			vkeys.push(v.trim());
+		}
+		var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
+		data		= vkey === null ? null : data[vkey];
+
+		if (data === null)
+		    return false;
+
+		variables[vkey.slice(1)]	= seg;
 	    }
-	    var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
-	    data	= vkey === null ? null : data[vkey];
-
-	    if (data === null)
-		return false;
-
-	    variables[vkey.slice(1)]	= seg;
+	    else {
+		data	= data[seg];
+	    }
 	}
-	else
-	    data	= data[seg];
-	parents.push([seg,data]);
+	last_seg	= seg;
     }
-    parents.pop();
 
     if (data['.base'] === undefined)
 	var config	= dictcopy(data);
