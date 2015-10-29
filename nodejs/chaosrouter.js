@@ -65,7 +65,7 @@ function defaultKnexQueryBuilder(db, next) {
     if (this.where)
     	q.where( knex.raw(fill(this.where, this.args)) );
 
-    // log.debug("Query: \n"+q.toString());
+    log.debug("Query: \n"+q.toString());
 
     q.then(function(result) {
         next(null, result);
@@ -111,6 +111,13 @@ ChaosRouter.prototype.extend_validation	= function(dict) {
 	var v		= dict[k];
 	validationlib[k]= v;
     }
+}
+ChaosRouter.prototype.filterNonCommands	= function(config) {
+    var c	= {};
+    for (var i in config)
+	if (i.indexOf('.') === 0)
+	    c[i]	= config[i];
+    return c;
 }
 ChaosRouter.prototype.route	= function(path, data, parents) {
     data		= setdefault(data, null);
@@ -179,18 +186,20 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	var config	= dictcopy(data);
     else {
 	var base	= this.route( data['.base'], data, parents );
-	var config	= dictcopy(base.config);
+	var config	= this.filterNonCommands(base.config);
+	delete config['.validate'];
+	delete data['.base'];
 	util._extend(config, data);
     }
 
-    return Endpoint(config, variables, parents, this.query, this.db);
+    return Endpoint(config, variables, this.query, this.db, this);
 }
 
-function Endpoint(config, path_vars, parents, query, db) {
+function Endpoint(config, path_vars, query, db, router) {
     if (! (this instanceof Endpoint))
-	return new Endpoint(config, path_vars, parents, query, db);
+	return new Endpoint(config, path_vars, query, db, router);
 
-    this.parents	= parents;
+    this.router		= router;
     this.config		= config;
     this.db		= db;
     this.args		= {
@@ -201,6 +210,8 @@ function Endpoint(config, path_vars, parents, query, db) {
 	next(new Error("No query builder was provided"));
     });
 }
+Endpoint.prototype.validationlib	= validationlib;
+Endpoint.prototype.methodlib		= methodlib;
 Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
@@ -214,6 +225,25 @@ Endpoint.prototype.set_arguments	= function(args) {
     for ( var name in args )
 	this.args[name] = args[name];
 }
+Endpoint.prototype.recursiveFill= function(args, data) {
+    for (var i in args) {
+	var v		= null;
+	var arg		= args[i];
+	if (typeof arg === 'string') {
+	    try {
+		v	= fill(arg, data);
+	    } catch (e) {}
+	}
+	else if (typeof arg === 'object' && arg !== null) {
+	    v		= this.recursiveFill(arg, data);
+	}
+	else {
+	    v		= arg;
+	}
+	args[i]		= v;
+    }
+    return args;
+}
 Endpoint.prototype.validate	= function(validations) {
     if (validations === null || validations === undefined)
     	return Promise.resolve();
@@ -225,23 +255,12 @@ Endpoint.prototype.validate	= function(validations) {
 	if (! util.isArray(rule) || rule.length === 0)
 	    throw new Error("Failed to process rule: "+rule);
 	var command	= rule[0];
-	var params	= [];
-	var _p		= rule.slice(1);
-	for( var i=0; i<_p.length; i++) {
-	    var param	= _p[i];
-	    try {
-		var value	= fill(param, self.args);
-	    }
-	    catch (e) {
-		var value	= null;
-	    }
-	    params.push(value);
-	}
+	var params	= this.recursiveFill(rule.slice(1), this.args);
 	var cmd		= eval("validationlib."+command);
 	if (cmd === null || cmd === undefined)
 	    throw new Error("No validation method for rule "+rule);
 	promises.push(new Promise(function(f,r){
-	    cmd.call(validationlib, params, self.args, function(check) {
+	    cmd.call(self, params, self.args, function(check) {
 		if (is_dict(check))
 		    r(check);
 		else if (check !== true) {
@@ -275,6 +294,16 @@ Endpoint.prototype.get_structure	= function() {
     }
     
     return structure;
+}
+Endpoint.prototype.respondWith		= function(path, cb) {
+    log.info("Responding with path:", path);
+    var endpoint	= this.router.route(path);
+    log.info("Responding endpoint:", endpoint.config);
+    endpoint.execute(this.args)
+	.then(function(d) {
+	    log.info("Responding with data:", d);
+	    cb(d);
+	})
 }
 Endpoint.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
@@ -327,22 +356,16 @@ Endpoint.prototype.execute		= function(args) {
 			if (cmd === undefined)
 			    throw new Error("No method named "+method);
 			else
-			    return cmd.call(methodlib, self.args, function(result) {
+			    return cmd.call(self, self.args, function(result) {
 				f(result);
 			    });
 		    }
 		    else {
 			var structure	= self.get_structure();
-			if (structure === false)
-			    return f({
-				"error": "Dead End",
-				"message": "Nothing configured for this endpoint"
-			    });
-
 			self.query.call(self, self.db, function(err, all) {
 			    if(err !== undefined && err !== null)
 				return r(err);
-			    var result	= structure === null
+			    var result	= structure === false
 				? all
 				: restruct(all, structure);
 			    return f(result);
