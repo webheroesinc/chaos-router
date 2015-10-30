@@ -1,6 +1,6 @@
 {
   "name": "chaosrouter",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "ERROR: No README data found!",
   "main": "chaosrouter.js",
   "scripts": {
@@ -28,9 +28,9 @@
     "mkdirp": "^0.5.1",
     "multer": "^1.0.6",
     "node-uuid": "^1.4.3",
-    "populater": "^0.2.1",
+    "populater": "^0.2.2",
     "promise": "^7.0.4",
-    "restruct-data": "^0.2.4"
+    "restruct-data": "^0.2.5"
   },
   "devDependencies": {},
   "readme": "ERROR: No README data found!"

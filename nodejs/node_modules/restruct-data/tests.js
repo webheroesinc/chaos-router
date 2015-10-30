@@ -80,7 +80,8 @@ var struct	= {
 	    "name": "{first} {last}",
 	    "email": true
 	}
-    }]
+    }],
+    "delete": "< happy.tappy"
 }
 var data	= restruct(result, struct);
 console.log(json(data,true))
