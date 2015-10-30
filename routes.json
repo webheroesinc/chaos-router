@@ -29,6 +29,12 @@
 	    },
 	    "file": {
 		".response": "../static_result.json"
+	    },
+	    "dynamic_file": {
+		".response": "< file"
+	    },
+	    "dynamic": {
+		".response": "< name"
 	    }
 	},
 	"test_validate": {

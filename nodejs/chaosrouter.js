@@ -321,6 +321,9 @@ Endpoint.prototype.execute		= function(args) {
 		try {
 		    var response	= self.config['.response']
 		    if( response ) {
+			if ( typeof response === "string" )
+			    response	= fill(response, self.args);
+			
 			if ( typeof response === "string" ) {
 			    if(! fs.existsSync(response) ) {
 				return f({
@@ -338,7 +341,7 @@ Endpoint.prototype.execute		= function(args) {
 				})
 			    }
 			}
-			return f(response);
+			return f(restruct(self.args,response));
 		    }
 		    else if (method !== self.config['.method']) {
 			var method		= self.config['.method'];
