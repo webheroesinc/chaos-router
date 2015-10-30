@@ -321,25 +321,27 @@ Endpoint.prototype.execute		= function(args) {
 		try {
 		    var response	= self.config['.response']
 		    if( response ) {
-			if ( typeof response === "string" )
-			    response	= fill(response, self.args);
-			
 			if ( typeof response === "string" ) {
-			    if(! fs.existsSync(response) ) {
-				return f({
-				    error: "Invalid File",
-				    message: "The response file was not found"
-				})
+			    response	= fill(response, self.args);
+			    if ( typeof response === "string" ) {
+				if(! fs.existsSync(response) ) {
+				    return f({
+					error: "Invalid File",
+					message: "The response file was not found"
+				    })
+				}
+				response	= fs.readFileSync( response, 'utf8' );
+				try {
+				    response= JSON.parse(response)
+				} catch(err) {
+				    return f({
+					error: "Invalid File",
+					message: "The response file was not valid JSON"
+				    })
+				}
 			    }
-			    response	= fs.readFileSync( response, 'utf8' );
-			    try {
-				response= JSON.parse(response)
-			    } catch(err) {
-				return f({
-				    error: "Invalid File",
-				    message: "The response file was not valid JSON"
-				})
-			    }
+			    else
+				return f(response)
 			}
 			return f(restruct(self.args,response));
 		    }

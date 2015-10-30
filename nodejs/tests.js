@@ -110,6 +110,17 @@ knex.transaction(function(trx) {
     	return true;
     });
 
+    test_endpoint('/get/responses/dynamic', {
+	"name": {
+	    "test": "< exact"
+	}
+    }, function (result) {
+    	if (result.test !== "< exact") {
+    	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
     test_endpoint('/get/responses/dynamic_file', {"file": "../static_result.json"}, function (result) {
     	if (result.message !== "this is a static file response") {
     	    return ["Unexpected result", result] ;
