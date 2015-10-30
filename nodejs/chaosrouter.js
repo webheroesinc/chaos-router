@@ -21,7 +21,11 @@ function setdefault(value, d) {
     return value === undefined ? d : value;
 }
 function is_dict(d) {
-    return d.constructor.name == 'Object';
+    try {
+	return d.constructor.name == 'Object';
+    } catch (e) {
+	return false;
+    }
 }
 function is_iterable(d) {
     try {
@@ -296,12 +300,9 @@ Endpoint.prototype.get_structure	= function() {
     return structure;
 }
 Endpoint.prototype.respondWith		= function(path, cb) {
-    log.info("Responding with path:", path);
     var endpoint	= this.router.route(path);
-    log.info("Responding endpoint:", endpoint.config);
     endpoint.execute(this.args)
 	.then(function(d) {
-	    log.info("Responding with data:", d);
 	    cb(d);
 	})
 }

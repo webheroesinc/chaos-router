@@ -79,6 +79,9 @@ restruct.prototype.extend = function (data, struct, result) {
 	    else if (typeof struct[key] === 'object' && struct[key] !== null)
 		this.extend(data, struct[key], result[k]);
 	}
+
+	if (result[k] === undefined)
+	    delete result[k];
     }
     if (Array.isArray(struct)) {
 	return Object.keys(result).map(function (k) {
