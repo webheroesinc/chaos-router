@@ -263,21 +263,23 @@ Endpoint.prototype.validate	= function(validations) {
 	var cmd		= eval("validationlib."+command);
 	if (cmd === null || cmd === undefined)
 	    throw new Error("No validation method for rule "+rule);
-	promises.push(new Promise(function(f,r){
-	    cmd.call(self, params, self.args, function(check) {
-		if (is_dict(check))
-		    r(check);
-		else if (check !== true) {
-		    var message	= "Failed at rule "+rule+" with values "+params;
-		    r({
-			"error": "Failed Validation",
-			"message": is_string(check) ? check : message
-		    })
-		}
-		else
-		    f();
-	    });
-	}));
+	(function(command, params, cmd) {
+	    promises.push(new Promise(function(f,r){
+		cmd.call(self, params, self.args, function(check) {
+		    if (is_dict(check))
+			r(check);
+		    else if (check !== true) {
+			var message	= "Failed at rule "+command;
+			r({
+			    "error": "Failed Validation",
+			    "message": is_string(check) ? check : message
+			})
+		    }
+		    else
+			f();
+		});
+	    }));
+	})(command, params, cmd);
     }
     return Promise.all(promises);
 }
