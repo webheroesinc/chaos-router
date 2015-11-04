@@ -28,7 +28,7 @@
 		}
 	    },
 	    "file": {
-		".response": "../static_result.json"
+		".response": "../../static_result.json"
 	    },
 	    "dynamic_file": {
 		".response": "< file"

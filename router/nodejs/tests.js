@@ -8,13 +8,13 @@ var chaosrouter		= require('./chaosrouter.js');
 var knex		= require('knex')({
     client: 'sqlite',
     connection: {
-	filename: '../testing.sqlite'
+	filename: '../../testing.sqlite'
     }
 });
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 
 
-var router	= chaosrouter('../routes.json', {
+var router	= chaosrouter('../../routes.json', {
     db: knex
 });
 router.extend_methods({
@@ -121,7 +121,7 @@ knex.transaction(function(trx) {
     	return true;
     });
 
-    test_endpoint('/get/responses/dynamic_file', {"file": "../static_result.json"}, function (result) {
+    test_endpoint('/get/responses/dynamic_file', {"file": "../../static_result.json"}, function (result) {
     	if (result.message !== "this is a static file response") {
     	    return ["Unexpected result", result] ;
     	}

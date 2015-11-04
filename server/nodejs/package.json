@@ -1,8 +1,8 @@
 {
-  "name": "chaosrouter",
-  "version": "0.1.22",
+  "name": "chaosserver",
+  "version": "0.0.1",
   "description": "ERROR: No README data found!",
-  "main": "chaosrouter.js",
+  "main": "chaosserver.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,7 +20,6 @@
   "dependencies": {
     "body-parser": "^1.14.1",
     "bunyan": "^1.5.1",
-    "coauth-sdk": "^0.1.4",
     "cookie-parser": "^1.4.0",
     "express": "^4.13.3",
     "express-ws": "^1.0.0-rc.2",

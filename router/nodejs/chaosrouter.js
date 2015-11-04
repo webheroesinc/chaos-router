@@ -4,7 +4,6 @@ var restruct	= require('restruct-data');
 var fill	= restruct.populater;
 var fs		= require('fs');
 var util	= require('util');
-var server	= require('./server');
 var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
@@ -398,6 +397,5 @@ Endpoint.prototype.execute		= function(args) {
 
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
-ChaosRouter.server	= server;
 ChaosRouter.coauthSDK	= require('coauth-sdk');
 module.exports		= ChaosRouter;
