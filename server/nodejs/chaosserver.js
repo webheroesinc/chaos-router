@@ -5,6 +5,7 @@ var path		= require('path');
 var crypto		= require('crypto');
 
 var bunyan		= require('bunyan');
+var Qs			= require('qs');
 var fill		= require('populater');
 var mkdirp		= require('mkdirp');
 var uuid		= require('node-uuid');
@@ -90,6 +91,13 @@ function serverInit(opts) {
 
     if (typeof preUpload !== 'function' || typeof postUpload !== 'function')
 	throw new Error("preUpload and postUpload must be functions(req, res, next) [dont forget to call next()]");
+    
+
+    server.set('query parser', function(querystr) {
+	// Stop the retarded query parser from ignoring number indexes
+	// that equal 20 or below.
+	return Qs.parse(querystr, { parseArrays: false });
+    });
 
     server.use( function(req, res, next) {
 	next();

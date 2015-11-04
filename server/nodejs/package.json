@@ -29,6 +29,7 @@
     "node-uuid": "^1.4.3",
     "populater": "^0.2.2",
     "promise": "^7.0.4",
+    "qs": "^4.0.0",
     "restruct-data": "^0.2.6"
   },
   "devDependencies": {},
