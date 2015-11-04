@@ -63,7 +63,7 @@ function defaultKnexQueryBuilder(db, next) {
     	var t		= join[0];
     	var c1		= join[1].join('.');
     	var c2		= join[2].join('.');
-    	q.leftJoin(t, c1, c2);
+    	q.leftJoin(knex.raw(t), c1, c2);
     }
     
     if (this.where)

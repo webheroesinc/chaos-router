@@ -8,12 +8,15 @@ function restruct(data, struct) {
     this.result		= {};
     // Turn structure into predictable objects (no RegExp, undefined
     // or function).  Limits the complex objects to Array's and Dicts
+    data		= JSON.parse(JSON.stringify(data));
     this.struct		= JSON.parse(JSON.stringify(struct));
-    this.extend(data);
+    this.extend(data, this.struct, this.result);
     this.flatten(this.result, this, 'result');
     return this.result;
 }
 restruct.flattenTrigger	= '.array';
+restruct.rescopeTrigger	= '.rescope';
+restruct.indexKey	= '$index';
 restruct.prototype.flatten = function (result, parent, key) {
     // Go through entire result and flatten dicts that contain
     // this.flattenTrigger command.  If not true just remove command.
@@ -23,24 +26,40 @@ restruct.prototype.flatten = function (result, parent, key) {
 	parent[key] = result = Object.keys(result).map(function (k) {
 	    return result[k];
 	});
-    for (var k in result)
+    for (var k in result) {
 	if (typeof result[k] === 'object' && result[k] !== null)
 	    this.flatten(result[k], result, k);
+    }
 }    
 restruct.prototype.extend = function (data, struct, result) {
     if (Array.isArray(data))
-    	return this.extend_list(data, struct);
-    
-    result		= result === undefined ? this.result : result;
-    struct		= struct === undefined ? this.struct : struct;
+    	return this.extend_list(data, struct, result);
     
     for (var key in struct) {
 	if (key === restruct.flattenTrigger) {
 	    result[key]	= struct[key];
 	    continue;
 	}
+
 	var v		= struct[key];
-	k		= fill(key, data);
+	if (key === restruct.rescopeTrigger) {
+	    if (Array.isArray(v)) {
+		var d	= fill(v[0], data);
+		for (var i in d) {
+		    var blob	= d[i];
+		    d[i]		= JSON.parse(JSON.stringify(data));
+		    d[i][v[1]]	= blob;
+		}
+	    } else if (typeof v === 'string') {
+		var d	= fill(v, data);
+	    } else {
+		throw Error("Unsupported use of .rescope");
+	    }
+	    delete struct[key];
+	    return this.extend(d, struct, {});
+	}
+	
+	var k		= fill(key, data);
 	if (k === undefined || k === null)
 	    continue;
 
@@ -83,6 +102,7 @@ restruct.prototype.extend = function (data, struct, result) {
 	if (result[k] === undefined)
 	    delete result[k];
     }
+    
     if (Array.isArray(struct)) {
 	return Object.keys(result).map(function (k) {
 	    return result[k];
@@ -91,10 +111,12 @@ restruct.prototype.extend = function (data, struct, result) {
     else
 	return result;
 }
-restruct.prototype.extend_list = function (rows, struct) {
-    for (var i in rows)
-	this.extend(rows[i], struct);
-    return this.result;
+restruct.prototype.extend_list = function (rows, struct, result) {
+    for (var i in rows) {
+	rows[i][restruct.indexKey]	= parseInt(i);
+	this.extend(rows[i], struct, result);
+    }
+    return result;
 }
 
 restruct.populater	= fill;

@@ -99,3 +99,70 @@ var struct	= {
 }
 var data	= restruct(result, struct);
 console.log(json(data,true))
+
+var result	= {
+    "class": "Math",
+    "people": [{
+	id: 1,
+	first: 'Travis',
+	last: 'Mottershead',
+	email: 'travis@pitch.so',
+	gender: 'm',
+	age: 20,
+	weight: 150
+    },{
+	id: 2,
+	first: 'Matthew',
+	last: 'Brisebois',
+	email: 'matthew@pitch.so',
+	gender: 'm',
+	age: 25,
+	weight: 210
+    },{
+	id: 3,
+	first: 'Aaron',
+	last: 'Dick',
+	email: 'aaron@pitch.so',
+	gender: 'm',
+	age: 28,
+	weight: 130
+    },{
+	id: 4,
+	first: 'Valerie',
+	last: 'Brisebois',
+	email: 'valerie@brisebois.me',
+	gender: 'f',
+	age: 24,
+	weight: 120
+    }]
+}
+
+var struct = {
+    "< class": {
+	".rescope": ["< people", "person"],
+	"< person.id": {
+	    "id": "< person.id",
+	    "name": "{person.first} {person.last}",
+	    "email": "< person.email",
+	    "< people[this.$index+1] ? 'next' : undefined": {
+		"id": "< people[this.$index+1].id",
+		"name": "= this.people[this.$index+1].first+' '+this.people[this.$index+1].last",
+		"email": "< people[this.$index+1].email"
+	    }
+	}
+    }
+}
+var data	= restruct(result, struct);
+console.log(json(data,true))
+
+var struct = {
+    "< class": {
+	".rescope": "< people",
+	"< id": {
+	    "name": "{first} {last}",
+	    "email": true
+	}
+    }
+}
+var data	= restruct(result, struct);
+console.log(json(data,true))
