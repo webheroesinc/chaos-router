@@ -17,6 +17,19 @@ knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 var router	= chaosrouter('../../routes.json', {
     db: knex
 });
+router.extend_validation({
+    "fail_false": function(args, data, cb) {
+	cb(false);
+    },
+    "TestValidationClass": {
+	"required_not_empty": function(args, data, cb) {
+	    cb({
+		error: "Data Required",
+		message: "missing required data"
+	    })
+	}
+    }
+});
 router.extend_methods({
     "hello_world": function(data, cb) {
 	cb({
@@ -130,6 +143,27 @@ knex.transaction(function(trx) {
 
     test_endpoint('/get/testBase', null, function (result) {
     	if (result.id === undefined) {
+    	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
+    test_endpoint('/get/test_validate/fail_false', null, function (result) {
+    	if (result.error !== "Failed Validation") {
+    	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
+    test_endpoint('/get/test_validate/class_method', null, function (result) {
+    	if (result.error !== "Data Required") {
+    	    return ["Unexpected result", result] ;
+    	}
+    	return true;
+    });
+
+    test_endpoint('/get/test_validate/string', null, function (result) {
+    	if (result.message !== "This is not a pass") {
     	    return ["Unexpected result", result] ;
     	}
     	return true;

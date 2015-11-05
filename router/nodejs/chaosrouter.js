@@ -247,6 +247,19 @@ Endpoint.prototype.recursiveFill= function(args, data) {
     }
     return args;
 }
+function validationResponse(check, command, f,r) {
+    if (is_dict(check))
+	r(check);
+    else if (check !== true) {
+	var message	= "Failed at rule "+command;
+	r({
+	    "error": "Failed Validation",
+	    "message": is_string(check) ? check : message
+	});
+    }
+    else
+	f();
+}
 Endpoint.prototype.validate	= function(validations) {
     if (validations === null || validations === undefined)
     	return Promise.resolve();
@@ -255,30 +268,24 @@ Endpoint.prototype.validate	= function(validations) {
     var promises	= [];
     for (var k in validations) {
 	var rule	= validations[k];
-	if (! util.isArray(rule) || rule.length === 0)
-	    throw new Error("Failed to process rule: "+rule);
-	var command	= rule[0];
-	var params	= this.recursiveFill(rule.slice(1), this.args);
-	var cmd		= eval("validationlib."+command);
-	if (cmd === null || cmd === undefined)
-	    throw new Error("No validation method for rule "+rule);
-	(function(command, params, cmd) {
-	    promises.push(new Promise(function(f,r){
+	promises.push(new Promise(function(f,r){
+	    if (typeof rule === 'string') {
+		var check	= fill(rule, this.args);
+		validationResponse(check, command, f,r);
+	    }
+	    else {
+		if (! util.isArray(rule) || rule.length === 0)
+		    throw new Error("Failed to process rule: "+rule);
+		var command	= rule[0];
+		var params	= self.recursiveFill(rule.slice(1), this.args);
+		var cmd		= eval("validationlib."+command);
+		if (cmd === null || cmd === undefined)
+		    throw new Error("No validation method for rule "+rule);
 		cmd.call(self, params, self.args, function(check) {
-		    if (is_dict(check))
-			r(check);
-		    else if (check !== true) {
-			var message	= "Failed at rule "+command;
-			r({
-			    "error": "Failed Validation",
-			    "message": is_string(check) ? check : message
-			})
-		    }
-		    else
-			f();
+		    validationResponse(check, command, f,r);
 		});
-	    }));
-	})(command, params, cmd);
+	    }
+	}));
     }
     return Promise.all(promises);
 }

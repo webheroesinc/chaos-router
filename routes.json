@@ -74,6 +74,11 @@
 		".validate": [
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
+	    },
+	    "string": {
+		".validate": [
+		    "= 'This is not a pass'"
+		]
 	    }
 	},
 	"testBase": {
