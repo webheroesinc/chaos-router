@@ -24,7 +24,7 @@ var router		= ChaosRouter('../../routes.json', {
     basepath: 'api'
 });
 
-var methods		= require('./test-methods');
+var methods		= require('./methods');
 router.extend_methods(methods);
 
 var server		= ChaosServer({
@@ -39,14 +39,12 @@ var server		= ChaosServer({
     hashEncoding: 'sha1',
     preUpload: function(req, res, next) {
 	var allowed	= req.auth.user_level === 0;
-	console.log("preUpload Running");
 	if (!allowed)
 	    next(new Error("Permission denied to upload"));
 	else
 	    next();
     },
     postUpload: function(req, res, next) {
-	console.log("postUpload Running");
 	if (!req.files || !req.files.length)
 	    return next();
 	next();
@@ -57,7 +55,6 @@ server.use(server.upload.array('media'), function (req, res, next) {
     if (!req.files || !req.files.length)
 	return next();
     
-    log.info("Uploaded stuff");
     res.reply(req.files);
 });
 server.use('/api', function (req, res) {
@@ -76,9 +73,7 @@ server.use('/api', function (req, res) {
 	    request: req,
 	    response: res,
 	    data: req.data,
-	    files: req.files,
-	    // coauth: coauth,
-	    // auth: auth,
+	    files: req.files
 	}).then(function (result) {
 	    res.reply(result);
 	}, function (err) {

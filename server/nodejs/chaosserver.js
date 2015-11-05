@@ -6,15 +6,13 @@ var crypto		= require('crypto');
 
 var bunyan		= require('bunyan');
 var Qs			= require('qs');
-var fill		= require('populater');
 var mkdirp		= require('mkdirp');
 var uuid		= require('node-uuid');
 var body_parser		= require('body-parser');
 var cookie_parser	= require('cookie-parser');
 var multer		= require('multer');
 var express		= require('express');
-var expressWs		= require('express-ws')(express());
-var server		= expressWs.app;
+var expressWs		= require('express-ws');
 
 var log			= bunyan.createLogger({
     name: "ChaosServer",
@@ -92,7 +90,8 @@ function serverInit(opts) {
     if (typeof preUpload !== 'function' || typeof postUpload !== 'function')
 	throw new Error("preUpload and postUpload must be functions(req, res, next) [dont forget to call next()]");
     
-
+    var server		= expressWs(express()).app;
+    
     server.set('query parser', function(querystr) {
 	// Stop the retarded query parser from ignoring number indexes
 	// that equal 20 or below.

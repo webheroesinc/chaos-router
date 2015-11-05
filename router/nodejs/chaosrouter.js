@@ -397,5 +397,4 @@ Endpoint.prototype.execute		= function(args) {
 
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
-ChaosRouter.coauthSDK	= require('coauth-sdk');
 module.exports		= ChaosRouter;
