@@ -1,13 +1,13 @@
 {
     "get": {
 	"empty_method": {
-	    ".execute": [
+	    "#_execute": [
 		[]
 	    ]
 	},
 	"people": {
-	    ".table": "people",
-            ".structure": {
+	    "#_table": "people",
+            "#_structure": {
 		"< person_id": {
 		    "id": "< person_id",
 		    "name": {
@@ -21,39 +21,39 @@
             }
 	},
 	"test_method": {
-	    ".execute": [
+	    "#_execute": [
 		["hello_world"]
 	    ]
 	},
 	"parent_class_test": {
-	    ".execute": [
+	    "#_execute": [
 		["ParentClass.heythere"]
 	    ]
 	},
 	"responses": {
 	    "static": {
-		".response": {
+		"#_response": {
 		    "message": "this is inline static data"
 		}
 	    },
 	    "file": {
-		".response": "../../static_result.json"
+		"#_response": "../../static_result.json"
 	    },
 	    "dynamic_file": {
-		".response": "< file"
+		"#_response": "< file"
 	    },
 	    "dynamic": {
-		".response": "< name"
+		"#_response": "< name"
 	    }
 	},
 	"test_validate": {
 	    ":id": {
-		".validate": [
+		"#_validate": [
 		    ["required_not_empty", "< path.id"]
 		],
-		".table": "people",
-		".where": "person_id = {path.id}",
-		".structure": {
+		"#_table": "people",
+		"#_where": "person_id = {path.id}",
+		"#_structure": {
 		    "id": "= {person_id}",
 		    "name": {
 			"first": "< first_name",
@@ -65,38 +65,38 @@
 		}
 	    },
 	    "fail_false": {
-		".validate": [
+		"#_validate": [
 		    ["fail_false", "hello", "world"]
 		]
 	    },
 	    "fail_message": {
-		".validate": [
+		"#_validate": [
 		    ["fail_message", "hello", "world"]
 		]
 	    },
 	    "fail_error": {
-		".validate": [
+		"#_validate": [
 		    ["fail_error", "hello", "world"]
 		]
 	    },
 	    "class_method": {
-		".validate": [
+		"#_validate": [
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
 	    },
 	    "string": {
-		".validate": [
+		"#_validate": [
 		    "= 'This is not a pass'"
 		]
 	    }
 	},
 	"testBase": {
-	    ".base": "../secondBase",
-	    ".where": "person_id = 1"
+	    "#_base": "../secondBase",
+	    "#_where": "person_id = 1"
 	},
 	"secondBase": {
-	    ".base": "../baseTest",
-	    ".structure": {
+	    "#_base": "../baseTest",
+	    "#_structure": {
 		"id": "= {person_id}",
 		"name": {
 		    "first": "< first_name",
@@ -108,11 +108,11 @@
 	    }
 	},
 	"baseTest": {
-	    ".table": "people"
+	    "#_table": "people"
 	}
     },
     "upload": {
-	".execute": [
+	"#_execute": [
 	    ["uploadTest"]
 	]
     }

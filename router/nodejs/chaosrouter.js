@@ -1,5 +1,5 @@
 
-var extend		= require('util')._extend;
+var extend	= require('util')._extend;
 var Promise	= require('promise');
 var restruct	= require('restruct-data');
 var fill	= restruct.populater;
@@ -131,8 +131,8 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     
     var directives	= {};
     for (var k in data) {
-	if (k.indexOf('.') === 0) {
-	    directives[k.slice(1)]	= data[k];
+	if (k.indexOf('#_') === 0) {
+	    directives[k.slice(2)]	= data[k];
 	    delete data[k];
 	}
     }
