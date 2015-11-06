@@ -20,9 +20,8 @@ var log		= bunyan.createLogger({
 });
 
 var router	= chaosrouter('../../routes.json', {
-    db: knex,
     defaultExec: function (args, resp) {
-	var knex	= this.db;
+	var knex	= this.args.db;
 	var q		= knex.select();
 
 	var table	= this.directives['table'];
@@ -130,6 +129,9 @@ var tests		= [];
 var failures		= 0;
 var passes		= 0;
 function test_endpoint( endpoint, data, cb ) {
+    if (data)
+	extend(data, { "db": test_endpoint.db });
+    
     tests.push(new Promise(function(f,r) {
 	var ep		= router.route(endpoint);
 	var e		= ep.execute(data)
@@ -157,7 +159,7 @@ function test_endpoint( endpoint, data, cb ) {
     }));
 }
 knex.transaction(function(trx) {
-    router.db	= trx;
+    test_endpoint.db	= trx;
     test_endpoint('/get/people', null, function(result) {
 	if (Object.keys(result).length < 80) {
 	    return ["Unexpected result", result];
@@ -256,6 +258,7 @@ knex.transaction(function(trx) {
     	return true;
     });
 
+    trx.commit();
     log.info("Waiting for", tests.length, "to be fullfilled")
     return Promise.all(tests);
 }).then(function(all) {

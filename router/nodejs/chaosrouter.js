@@ -40,7 +40,6 @@ function ChaosRouter(data, opts) {
     
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
-    this.db		= opts.db;
     this.defaultExec	= setdefault(opts.defaultExec, null);
 
     if (opts.defaultExec === undefined)
@@ -161,7 +160,6 @@ function Endpoint(path, config, directives, path_vars, router) {
     this.path		= path_vars;
     this.router		= router;
     this.config		= config;
-    this.db		= router.db;
     this.__methods__	= router.__methods__;
     this.defaultExec	= router.defaultExec;
     this.args		= {};
