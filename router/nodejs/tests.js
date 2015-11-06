@@ -1,10 +1,11 @@
 
-function printE(err) {
-    console.log(err);
-}
+var extend		= require('util')._extend;
+var fs			= require('fs');
 
 var Promise		= require('promise');
 var chaosrouter		= require('./chaosrouter.js');
+var fill		= chaosrouter.populater;
+var restruct		= chaosrouter.restruct;
 var knex		= require('knex')({
     client: 'sqlite',
     connection: {
@@ -12,36 +13,110 @@ var knex		= require('knex')({
     }
 });
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
-
+var bunyan	= require('bunyan');
+var log		= bunyan.createLogger({
+    name: "ChaosRouter Tests",
+    level: 'debug'
+});
 
 var router	= chaosrouter('../../routes.json', {
-    db: knex
+    db: knex,
+    defaultExec: function (args, resp) {
+	var knex	= this.db;
+	var q		= knex.select();
+
+	var table	= this.directives['table'];
+	var where	= this.directives['where'];
+	var joins	= this.directives['joins'] || [];
+	var columns	= this.directives['columns'] || [];
+	var struct	= this.directives['structure'];
+
+	q.from(table);
+	
+	for (var i in columns) {
+    	    if (Array.isArray(columns[i]))
+    		columns[i]	= columns[i].join(' as ');
+    	    q.column(columns[i]);
+	}
+	for (var i=0; i<joins.length; i++) {
+    	    var join	= joins[i];
+    	    var t	= join[0];
+    	    var c1	= join[1].join('.');
+    	    var c2	= join[2].join('.');
+    	    q.leftJoin(knex.raw(t), c1, c2);
+	}
+	
+	if (where)
+    	    q.where( knex.raw(fill(where, this.args)) );
+
+	// log.debug("Query: \n"+q.toString());
+
+	q.then(function(result) {
+	    var result	= struct === undefined
+	    	? result
+	    	: restruct(result, struct);
+            resp(result);
+	}, resp).catch(resp);
+    }
 });
-router.extend_validation({
-    "fail_false": function(args, data, cb) {
-	cb(false);
+router.directive('response', function (response, next, resp) {
+    if ( typeof response === "string" ) {
+	response		= fill(response, this.args);
+	if ( typeof response === "string" ) {
+	    if(! fs.existsSync(response) ) {
+		return resp({
+		    error: "Invalid File",
+		    message: "The response file was not found"
+		});
+	    }
+	    response		= fs.readFileSync( response, 'utf8' );
+	    try {
+		response	= JSON.parse(response)
+	    } catch(err) {
+		return resp({
+		    error: "Invalid File",
+		    message: "The response file was not valid JSON"
+		});
+	    }
+	}
+	else {
+	    return resp(response);
+	}
+    }
+    resp(restruct(this.args, response));
+});
+router.directive('structure_update', function (update, next, resp) {
+    if (this.directives['structure'] === undefined)
+	return resp({
+	    error: "Structure Update Failed",
+	    message: "Cannot update undefined; no structure is defined at "+this.route
+	});
+    extend( this.directive['structure'], update );
+    next();
+});
+router.executables({
+    "fail_false": function(args, _, validate) {
+	validate(false);
     },
     "TestValidationClass": {
-	"required_not_empty": function(args, data, cb) {
-	    cb({
+	"required_not_empty": function(args, _, validate) {
+	    validate({
 		error: "Data Required",
 		message: "missing required data"
 	    })
 	}
-    }
-});
-router.extend_methods({
-    "hello_world": function(data, cb) {
-	cb({
+    },
+    "hello_world": function(args, resp) {
+	resp({
 	    "title": "Hello World",
-	    "message": data.message
+	    "message": this.args.message
 	});
     },
     "ParentClass": {
-	"heythere": function(data, cb) {
-	    cb({
+	"heythere": function(args, resp) {
+	    resp({
 		title: "Parent Class Test",
-		message: data.message
+		message: this.args.message
 	    })
 	}
     }
@@ -55,21 +130,31 @@ var tests		= [];
 var failures		= 0;
 var passes		= 0;
 function test_endpoint( endpoint, data, cb ) {
-    var ep		= router.route(endpoint);
-    var e		= ep.execute(data)
-	.then(function(result) {
-	    return cb(result)
-	}).then(function(test) {
-	    var status	= test === true ? "PASSED": "FAILED"
-	    if(test !== true) {
-		console.log(test[0], endpoint);
-		failures++;
-	    }
-	    else
-		passes++;
-	})
-    e.catch(printE);
-    tests.push(e);
+    tests.push(new Promise(function(f,r) {
+	var ep		= router.route(endpoint);
+	var e		= ep.execute(data)
+	    .then(function(result) {
+		var test	= cb(result);
+		var status	= test === true ? "PASSED": "FAILED"
+		if(test !== true) {
+		    log.warn(status, endpoint);
+		    log.error(result);
+		    failures++;
+		    r(test);
+		}
+		else {
+		    log.info(status, endpoint);
+		    passes++;
+		    f(test);
+		}
+	    }, function(err) {
+		log.error(err);
+	    })
+	e.catch(function(err) {
+	    log.warn("Caught error");
+	    log.error(err);
+	});
+    }));
 }
 knex.transaction(function(trx) {
     router.db	= trx;
@@ -142,37 +227,47 @@ knex.transaction(function(trx) {
     });
 
     test_endpoint('/get/testBase', null, function (result) {
-    	if (result.id === undefined) {
-    	    return ["Unexpected result", result] ;
-    	}
+    	if (result.id === undefined)
+    	    return ["Unexpected result", result];
     	return true;
     });
 
     test_endpoint('/get/test_validate/fail_false', null, function (result) {
-    	if (result.error !== "Failed Validation") {
-    	    return ["Unexpected result", result] ;
-    	}
+    	if (result.error !== "Failed Validation")
+    	    return ["Unexpected result", result];
     	return true;
     });
 
     test_endpoint('/get/test_validate/class_method', null, function (result) {
-    	if (result.error !== "Data Required") {
-    	    return ["Unexpected result", result] ;
-    	}
+    	if (result.error !== "Data Required")
+    	    return ["Unexpected result", result];
     	return true;
     });
 
     test_endpoint('/get/test_validate/string', null, function (result) {
-    	if (result.message !== "This is not a pass") {
-    	    return ["Unexpected result", result] ;
-    	}
+    	if (result.message !== "This is not a pass")
+    	    return ["Unexpected result", result];
     	return true;
     });
 
+    test_endpoint('/get/empty_method', null, function (result) {
+    	if (result.message !== "Executable is missing the method name")
+    	    return ["Unexpected result", result];
+    	return true;
+    });
+
+    log.info("Waiting for", tests.length, "to be fullfilled")
     return Promise.all(tests);
-}).then(function() {
-    console.log("\nPasses:\t\t", passes);
-    console.log("Failures:\t", failures);
-    console.log("\nDestroying knex context");
+}).then(function(all) {
+    log.info("Passes", passes);
+    log.error("Failures", failures);
+    log.info("Destroying knex context");
     knex.destroy();
-}).catch(printE);
+}, function(err) {
+    log.error(err);
+    knex.destroy();
+}).catch( function(err) {
+    log.error("Caught failure");
+    log.error(err);
+    knex.destroy();
+});

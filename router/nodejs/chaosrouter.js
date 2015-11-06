@@ -1,4 +1,5 @@
 
+var extend		= require('util')._extend;
 var Promise	= require('promise');
 var restruct	= require('restruct-data');
 var fill	= restruct.populater;
@@ -10,10 +11,8 @@ var log		= bunyan.createLogger({
     name: "ChaosRouter",
     level: 'trace'
 });
-
-var validationlib = {
-}
-var methodlib = {
+function json(d,f) {
+    return JSON.stringify(d, null, f===false?null:4);
 }
 
 function setdefault(value, d) {
@@ -34,51 +33,6 @@ function is_iterable(d) {
     }
     return true;
 }
-function is_string(d) {
-    return typeof d == 'string';
-}
-function dictcopy(dict) {
-    var copy		= {}
-    for( var i in dict ) {
-        copy[i]		= dict[i]
-    }
-    return copy
-
-}
-
-function defaultKnexQueryBuilder(db, next) {
-    var knex		= db;
-    var q		= knex.select();
-
-    q.from(this.table);
-    
-    for (var i in this.columns) {
-    	if (Array.isArray(this.columns[i]))
-    	    this.columns[i]	= this.columns[i].join(' as ');
-    	q.column(this.columns[i]);
-    }
-    for (var i=0; i<this.joins.length; i++) {
-    	var join	= this.joins[i];
-    	var t		= join[0];
-    	var c1		= join[1].join('.');
-    	var c2		= join[2].join('.');
-    	q.leftJoin(knex.raw(t), c1, c2);
-    }
-    
-    if (this.where)
-    	q.where( knex.raw(fill(this.where, this.args)) );
-
-    log.debug("Query: \n"+q.toString());
-
-    q.then(function(result) {
-        next(null, result);
-    }, function(err) {
-        next(err, null);
-    }).catch(function(err) {
-        next(err, null);
-    });
-}
-
 
 function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
@@ -87,42 +41,32 @@ function ChaosRouter(data, opts) {
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
     this.db		= opts.db;
-    this.query		= setdefault(opts.query, defaultKnexQueryBuilder);
+    this.defaultExec	= setdefault(opts.defaultExec, null);
 
-    if (this.db === undefined && opts.query === undefined)
-	throw new Error("db and query options cannot both be empty.  One or both are required");
-
-    if (opts.query === undefined)
-	if (this.db.name !== 'knex')
-	    throw new Error("The default queryBuilder requires a knex db connection object");
+    if (opts.defaultExec === undefined)
+	throw new Error("defaultExec is required");
 
     if (is_dict(data))
 	this.config	= data;
-    else if (is_string(data))
+    else if (typeof data === 'string')
 	this.configfile	= data;
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
-ChaosRouter.prototype.extend_methods	= function(dict) {
-    for( var k in dict) {
-	var v		= dict[k];
-	methodlib[k]	= v;
-    }
+ChaosRouter.prototype.__directives__	= {};
+ChaosRouter.prototype.directive		= function (name, fn) {
+    if (name === undefined || fn === undefined)
+	throw Error("Must give a name and a callback when registering directives");
+
+    this.__directives__[name]		= fn;
 }
-ChaosRouter.prototype.extend_validation	= function(dict) {
-    for( var k in dict) {
-	var v		= dict[k];
-	validationlib[k]= v;
-    }
-}
-ChaosRouter.prototype.filterNonCommands	= function(config) {
-    var c	= {};
-    for (var i in config)
-	if (i.indexOf('.') === 0)
-	    c[i]	= config[i];
-    return c;
+ChaosRouter.prototype.__methods__	= {};
+ChaosRouter.prototype.executables	= function (dict) {
+    for(var k in dict)
+	this.__methods__[k]	= dict[k];
 }
 ChaosRouter.prototype.route	= function(path, data, parents) {
+    var originalPath	= path;
     data		= setdefault(data, null);
     parents		= setdefault(parents, null);
 
@@ -141,8 +85,8 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     // Remove leading and trailing slashes.
     var _p		= path.replace(/^\//, "").replace(/\/*$/, "")
     var segs		= _p.split('/');
-    if (!path)
-	return Endpoint(this.config, variables, parents, this.query);
+    if (!path || path === '')
+    	return Endpoint(originalPath, this.config, {}, variables, this);
 
     var last_seg;
     for (var i in segs) {
@@ -184,46 +128,52 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	}
 	last_seg	= seg;
     }
-
-    if (data['.base'] === undefined)
-	var config	= dictcopy(data);
-    else {
-	var base	= this.route( data['.base'], data, parents );
-	var config	= this.filterNonCommands(base.config);
-	delete config['.validate'];
-	delete data['.base'];
-	util._extend(config, data);
+    
+    var directives	= {};
+    for (var k in data) {
+	if (k.indexOf('.') === 0) {
+	    directives[k.slice(1)]	= data[k];
+	    delete data[k];
+	}
     }
 
-    return Endpoint(config, variables, this.query, this.db, this);
+    if (directives['base'] === undefined)
+	var config	= extend({}, data);
+    else {
+	var base	= this.route( directives['base'], data, parents );
+	delete base.directives['validate'];
+	delete directives['base'];
+
+	var merged	= {};
+	extend(merged, base.directives);
+	extend(merged, directives);
+	directives	= merged;
+    }
+
+    return Endpoint(originalPath, config, directives, variables, this);
 }
 
-function Endpoint(config, path_vars, query, db, router) {
+function Endpoint(path, config, directives, path_vars, router) {
     if (! (this instanceof Endpoint))
-	return new Endpoint(config, path_vars, query, db, router);
+	return new Endpoint(path, config, directives, path_vars, router);
 
+    this.route		= path;
+    this.path		= path_vars;
     this.router		= router;
     this.config		= config;
-    this.db		= db;
-    this.args		= {
-	"path": path_vars,
-	"db": db
-    }
-    this.query		= setdefault(query, function(next) {
-	next(new Error("No query builder was provided"));
-    });
+    this.db		= router.db;
+    this.__methods__	= router.__methods__;
+    this.defaultExec	= router.defaultExec;
+    this.args		= {};
+    this.directives	= directives;
 }
-Endpoint.prototype.validationlib	= validationlib;
-Endpoint.prototype.methodlib		= methodlib;
+Endpoint.prototype.directive		= function (name, fn) {
+    if (fn === undefined)
+	return this.directives[name];
+}
 Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
-    }
-    var reserved_keys	= ['path', 'db'];
-    for(var i=0; i<reserved_keys.length; i++) {
-	var reserved	= reserved_keys[i];
-	if (args[reserved])
-	    delete args[reserved];
     }
     for ( var name in args )
 	this.args[name] = args[name];
@@ -247,66 +197,6 @@ Endpoint.prototype.recursiveFill= function(args, data) {
     }
     return args;
 }
-function validationResponse(check, command, f,r) {
-    if (is_dict(check))
-	r(check);
-    else if (check !== true) {
-	var message	= "Failed at rule "+command;
-	r({
-	    "error": "Failed Validation",
-	    "message": is_string(check) ? check : message
-	});
-    }
-    else
-	f();
-}
-Endpoint.prototype.validate	= function(validations) {
-    if (validations === null || validations === undefined)
-    	return Promise.resolve();
-    
-    var self		= this;
-    var promises	= [];
-    for (var k in validations) {
-	var rule	= validations[k];
-	promises.push(new Promise(function(f,r){
-	    if (typeof rule === 'string') {
-		var check	= fill(rule, this.args);
-		validationResponse(check, command, f,r);
-	    }
-	    else {
-		if (! util.isArray(rule) || rule.length === 0)
-		    throw new Error("Failed to process rule: "+rule);
-		var command	= rule[0];
-		var params	= self.recursiveFill(rule.slice(1), this.args);
-		var cmd		= eval("validationlib."+command);
-		if (cmd === null || cmd === undefined)
-		    throw new Error("No validation method for rule "+rule);
-		cmd.call(self, params, self.args, function(check) {
-		    validationResponse(check, command, f,r);
-		});
-	    }
-	}));
-    }
-    return Promise.all(promises);
-}
-Endpoint.prototype.get_structure	= function() {
-    var structure	= this.config['.structure'];
-    if (structure === undefined)
-	return false;
-
-    structure		= dictcopy(structure);
-    var update		= this.config['.structure_update'];
-    if (update !== undefined) {
-	util._extend( structure, update );
-	for( var k in structure) {
-	    var v	= structure[k];
-	    if (v === false)
-		delete structure[k];
-	}
-    }
-    
-    return structure;
-}
 Endpoint.prototype.respondWith		= function(path, cb) {
     var endpoint	= this.router.route(path);
     endpoint.execute(this.args)
@@ -314,91 +204,148 @@ Endpoint.prototype.respondWith		= function(path, cb) {
 	    cb(d);
 	})
 }
+function validationErrorResponse(check, command) {
+    if (check.error && check.message)
+	return check;
+    else {
+	var message	= "Failed at rule "+command;
+	return {
+	    "error": "Failed Validation",
+	    "message": typeof check === 'string' ? check : message
+	};
+    }
+}
+Endpoint.prototype.runMethod		= function(executes, i, resp) {
+    // Assuming we have a list of executes, we want to run them one at a time and only run the next
+    // one if the previous is fulfilled.
+    var self		= this;
+    var exec		= executes[i];
+
+    if (exec === undefined)
+	return resp(validationErrorResponse("End of method chain with no response"));
+    
+    if (typeof exec === 'string') {
+	var check	= fill(exec, this);
+	if (check === true)
+	    resp();
+	else
+	    resp(validationErrorResponse(check, exec));
+	return;
+    }
+    
+    var args		= [];
+    if (Array.isArray(exec)) {
+	if (exec.length === 0)
+	    return resp({
+		"error": "Routing Syntax Error",
+		"message": "Executable is missing the method name"
+	    });
+	    
+	args		= exec;
+	exec		= exec.shift();
+    }
+    else {
+	return resp({
+	    "error": "Routing Syntax Error",
+	    "message": "Execute syntax must be an array with at least one value, NOT: "+ typeof exec
+	});
+    }
+    
+    var next		= function () {
+	var e		= executes[i+1]
+	self.runMethod(e, n, f);
+    };
+    
+    try {
+	cmd		= eval("self.__methods__."+exec);
+    } catch (err) {
+	return Promise.reject(err);
+    }
+    
+    if (typeof cmd !== 'function')
+	throw new Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
+    else {
+	args		= this.recursiveFill(args, this);
+	cmd.call(self, args, resp,  function (check) {
+	    if (check === true)
+		next();
+	    else
+		resp(validationErrorResponse(check, exec));
+	});
+    }
+}
+Endpoint.prototype.runAll		= function(executables, cb) {
+    if (executables === undefined)
+	return cb();
+    
+    var self		= this;
+    if (typeof executables === 'string') {
+	self.runMethod([executables], 0, cb);
+    }
+    else if (Array.isArray(executables)) {
+	self.runMethod(executables, 0, cb);
+    }
+    else {
+	cb({
+	    "error": "Routing Syntax Error",
+	    "message": "Execute is missing the method name"
+	});
+    }
+}
+Endpoint.prototype.runDirectives	= function(i, next, resp) {
+    if (i === undefined)
+	i		= 0;
+
+    var directives		= Object.keys(this.router.__directives__);
+    var key			= directives[i];
+
+    if (key === undefined) {
+	if (next === undefined)
+	    return Promise.resolve();
+	return next();
+    }
+
+    var directive		= this.router.__directives__[key];
+    
+    var self		= this;
+    
+    function cont(f,r) {
+    	if (self.directives[key] === undefined) {
+	    self.runDirectives(i+1, f,r)
+	}
+	else {
+    	    directive.call(self, self.directives[key], function() {
+		self.runDirectives(i+1, f,r)
+	    }, r);
+    	}
+    }
+    
+    if (next === undefined) {
+	return new Promise(function (f,r) {
+	    cont(f,r)
+	});
+    }
+    else
+	cont(next, resp);
+}
 Endpoint.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
 
     var self		= this;
-    
-    this.table		= setdefault( this.config['.table'], null);
-    this.where		= setdefault( this.config['.where'], null);
-    this.joins		= setdefault( this.config['.join'], []);
-    this.columns	= setdefault( this.config['.columns'], []);
-    
     return new Promise(function(f,r) {
-	self.validate(self.config['.validate'])
-	    .then(function() {
-		try {
-		    var response	= self.config['.response']
-		    if( response ) {
-			if ( typeof response === "string" ) {
-			    response	= fill(response, self.args);
-			    if ( typeof response === "string" ) {
-				if(! fs.existsSync(response) ) {
-				    return f({
-					error: "Invalid File",
-					message: "The response file was not found"
-				    })
-				}
-				response	= fs.readFileSync( response, 'utf8' );
-				try {
-				    response= JSON.parse(response)
-				} catch(err) {
-				    return f({
-					error: "Invalid File",
-					message: "The response file was not valid JSON"
-				    })
-				}
-			    }
-			    else
-				return f(response)
-			}
-			return f(restruct(self.args,response));
-		    }
-		    else if (method !== self.config['.method']) {
-			var method		= self.config['.method'];
-			method		= method.split('.');
-			var cmd		= null;
-			var meth_context	= methodlib;
-			for( var i in method ) {
-			    var meth	= method[i];
-			    if( is_dict( meth_context[meth] ) ) {
-				meth_context	= meth_context[meth]
-			    } else {
-				cmd	= meth_context[ meth ];
-			    }
-			}
-			if (cmd === undefined)
-			    throw new Error("No method named "+method);
-			else
-			    return cmd.call(self, self.args, function(result) {
-				f(result);
-			    });
-		    }
-		    else {
-			var structure	= self.get_structure();
-			self.query.call(self, self.db, function(err, all) {
-			    if(err !== undefined && err !== null)
-				return r(err);
-			    var result	= structure === false
-				? all
-				: restruct(all, structure);
-			    return f(result);
-			});
-		    }
-		} catch (err) {
-		    console.log(err)
-		    r(err);
-		}
-	    }, function(error) {
-		if ( error instanceof Error ) {
-		    r(error);
-		}
-		else {
-		    f(error);
-		}
-	    }).catch(function(err) {
-		f(err);
+	self.runDirectives().then(function() {	
+	    var validations	= self.directives['validate'];
+	    self.runAll(validations, function(error) {
+		if (error)
+		    return f(error);
+		
+		var execute	= self.directives['execute'];
+		if ( execute )
+		    self.runAll(execute, f);
+		else
+		    self.defaultExec.call(self, [], f);
 	    });
+	}, f);
     });
 }
 

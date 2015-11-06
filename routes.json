@@ -1,5 +1,10 @@
 {
     "get": {
+	"empty_method": {
+	    ".execute": [
+		[]
+	    ]
+	},
 	"people": {
 	    ".table": "people",
             ".structure": {
@@ -16,10 +21,14 @@
             }
 	},
 	"test_method": {
-	    ".method": "hello_world"
+	    ".execute": [
+		["hello_world"]
+	    ]
 	},
 	"parent_class_test": {
-	    ".method": "ParentClass.heythere"
+	    ".execute": [
+		["ParentClass.heythere"]
+	    ]
 	},
 	"responses": {
 	    "static": {
@@ -103,6 +112,8 @@
 	}
     },
     "upload": {
-	".method": "uploadTest"
+	".execute": [
+	    ["uploadTest"]
+	]
     }
 }
