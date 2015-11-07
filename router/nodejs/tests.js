@@ -129,8 +129,9 @@ var tests		= [];
 var failures		= 0;
 var passes		= 0;
 function test_endpoint( endpoint, data, cb ) {
-    if (data)
-	extend(data, { "db": test_endpoint.db });
+    if (!data)
+	data		= {};
+    extend(data, { "db": test_endpoint.db });
     
     tests.push(new Promise(function(f,r) {
 	var ep		= router.route(endpoint);
@@ -258,15 +259,18 @@ knex.transaction(function(trx) {
     	return true;
     });
 
-    trx.commit();
     log.info("Waiting for", tests.length, "to be fullfilled")
-    return Promise.all(tests);
-}).then(function(all) {
+    return Promise.all(tests).then(function(all) {
+	// trx.commit();
+	// return Promise.resolve();
+    });
+}).then(function() {
     log.info("Passes", passes);
     log.error("Failures", failures);
     log.info("Destroying knex context");
     knex.destroy();
 }, function(err) {
+    log.error("Refject failure");
     log.error(err);
     knex.destroy();
 }).catch( function(err) {

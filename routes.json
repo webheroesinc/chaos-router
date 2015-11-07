@@ -18,7 +18,15 @@
 		    "phone": "< phone_number",
 		    "personality": "< personality"
 		}
-            }
+            },
+	    "update": {
+		"#_trigger": [
+		    "/get/people"
+		],
+		"#_response": {
+		    "status": "= true"
+		}
+	    }
 	},
 	"test_method": {
 	    "#_execute": [

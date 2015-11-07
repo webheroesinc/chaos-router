@@ -40,7 +40,7 @@ function ChaosRouter(data, opts) {
     
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
-    this.defaultExec	= setdefault(opts.defaultExec, null);
+    this.defaultExec	= opts.defaultExec;
 
     if (opts.defaultExec === undefined)
 	throw new Error("defaultExec is required");
@@ -52,6 +52,7 @@ function ChaosRouter(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
+ChaosRouter.directivePrefix		= '#_';
 ChaosRouter.prototype.__directives__	= {};
 ChaosRouter.prototype.directive		= function (name, fn) {
     if (name === undefined || fn === undefined)
@@ -130,7 +131,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     
     var directives	= {};
     for (var k in data) {
-	if (k.indexOf('#_') === 0) {
+	if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
 	    directives[k.slice(2)]	= data[k];
 	    delete data[k];
 	}
@@ -161,9 +162,10 @@ function Endpoint(path, config, directives, path_vars, router) {
     this.router		= router;
     this.config		= config;
     this.__methods__	= router.__methods__;
-    this.defaultExec	= router.defaultExec;
     this.args		= {};
     this.directives	= directives;
+    if (this.directives['execute'] === undefined)
+	this.directives['execute']	= [[router.defaultExec]];
 }
 Endpoint.prototype.directive		= function (name, fn) {
     if (fn === undefined)
@@ -253,24 +255,29 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	var e		= executes[i+1]
 	self.runMethod(e, n, f);
     };
-    
-    try {
-	cmd		= eval("self.__methods__."+exec);
-    } catch (err) {
-	return Promise.reject(err);
-    }
-    
-    if (typeof cmd !== 'function')
-	throw new Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
+
+    if (typeof exec === 'function') 
+	cmd		= exec;
     else {
-	args		= this.recursiveFill(args, this);
-	cmd.call(self, args, resp,  function (check) {
-	    if (check === true)
-		next();
-	    else
-		resp(validationErrorResponse(check, exec));
-	});
+	try {
+	    cmd		= eval("self.__methods__."+exec);
+	} catch (err) {
+	    return resp({
+		"error": err.name,
+		"message": err.message
+	    });
+	}
+	if (typeof cmd !== 'function')
+	    throw Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
     }
+
+    args		= this.recursiveFill(args, this);
+    cmd.call(this, args, resp,  function (check) {
+	if (check === true)
+	    next();
+	else
+	    resp(validationErrorResponse(check, exec));
+    });
 }
 Endpoint.prototype.runAll		= function(executables, cb) {
     if (executables === undefined)
@@ -336,14 +343,9 @@ Endpoint.prototype.execute		= function(args) {
 	    self.runAll(validations, function(error) {
 		if (error)
 		    return f(error);
-		
-		var execute	= self.directives['execute'];
-		if ( execute )
-		    self.runAll(execute, f);
-		else
-		    self.defaultExec.call(self, [], f);
+		self.runAll(self.directives['execute'], f);
 	    });
-	}, f);
+	}, f).catch(r);
     });
 }
 
