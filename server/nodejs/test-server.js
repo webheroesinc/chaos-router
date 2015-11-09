@@ -3,8 +3,8 @@ var fs			= require('fs');
 var crypto		= require('crypto');
 var bunyan		= require('bunyan');
 var knexlib		= require('knex');
-var ChaosRouter		= require('../../router/nodejs/chaosrouter.js');
 var ChaosServer		= require('./chaosserver');
+var methods		= require('./methods');
 
 var log			= bunyan.createLogger({
     name: "MainServer",
@@ -19,24 +19,26 @@ var knex		= knexlib({
 });
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 
-var router		= ChaosRouter('../../routes.json', {
-    db: knex,
-    basepath: 'api'
-});
-
-var methods		= require('./methods');
-router.extend_methods(methods);
+function reply_error(res) {
+    return function (err) {
+	log.error(err);
+	res.reply({
+	    error: err.name,
+	    message: err.message
+	});
+    }    
+}
 
 var server		= ChaosServer({
-    static: "public",
+    "routes": "../../routes.json",
+    "hashUploadedFiles": true,
+    "hashEncoding": "sha1",
     auth: function(req, res, next) {
 	req.auth	= {
 	    user_level: 0
 	}
 	next();
     },
-    hashUploadedFiles: true,
-    hashEncoding: 'sha1',
     preUpload: function(req, res, next) {
 	var allowed	= req.auth.user_level === 0;
 	if (!allowed)
@@ -50,6 +52,8 @@ var server		= ChaosServer({
 	next();
     }
 });
+var router		= server.getRouter();
+router.executables(methods);
 
 server.use(server.upload.array('media'), function (req, res, next) {
     if (!req.files || !req.files.length)
@@ -67,8 +71,8 @@ server.use('/api', function (req, res) {
 	});
     }
     else {
-	log.info("Execute endpoint", req.path);
 	endpoint.execute({
+	    db: knex,
 	    method: 'HTTP',
 	    request: req,
 	    response: res,
@@ -76,19 +80,8 @@ server.use('/api', function (req, res) {
 	    files: req.files
 	}).then(function (result) {
 	    res.reply(result);
-	}, function (err) {
-	    log.error(err);
-	    res.reply({
-	    	error: err.name,
-	    	message: err.message
-	    });
-	}).catch(function(err) {
-	    log.error(err);
-	    res.reply({
-	    	error: err.name,
-	    	message: err.message
-	    });
-	});
+	}, reply_error(res))
+	    .catch(reply_error(res));
     }
 });
 server.listen(8000);

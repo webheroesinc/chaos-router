@@ -1,0 +1,26 @@
+<html>
+    <head>
+	
+    </head>
+    <body>
+	<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+	<script type="text/javascript">
+    	  function json(d,f) {
+	      return JSON.stringify(d, null, f===false?null:4);
+	  }
+    	  var ws	= new WebSocket('ws://'+location.host);
+	  ws.onopen	= function() {
+	      console.log("Connection opened");
+	      ws.send(json({
+		  "subscribe": "/chat/webheroes"
+	      }));
+	  }
+	  ws.onmessage	= function(event) {
+	      console.log(event.data);
+	      $('body').append('<pre>'+event.data+'</pre>');
+	  }
+	</script>
+    </body>
+</html>
+
+

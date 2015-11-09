@@ -1,0 +1,17 @@
+
+
+* <project name>
+
+** <sprint>
+
+*** <story>
+    :VALUE:
+    :EFFORT:
+    :ROI:
+
+    As <persona>, I would like to ...
+
+    So that ...
+
+**** <task>
+     :EFFORT:

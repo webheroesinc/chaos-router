@@ -1,4 +1,15 @@
 {
+    "chat": {
+	":room": {
+	    "#_response": {
+		"title": "< data.title",
+		"message": "< data.message"
+	    },
+	    "#_trigger": [
+		"/chat/{path.room}"
+	    ]
+	}
+    },
     "get": {
 	"empty_method": {
 	    "#_execute": [
@@ -19,13 +30,11 @@
 		    "personality": "< personality"
 		}
             },
-	    "update": {
+	    "create": {
 		"#_trigger": [
+		    "/get/people/{$result.id}",
 		    "/get/people"
-		],
-		"#_response": {
-		    "status": "= true"
-		}
+		]
 	    }
 	},
 	"test_method": {
