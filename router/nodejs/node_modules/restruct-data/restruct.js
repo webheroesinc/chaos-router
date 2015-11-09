@@ -8,7 +8,6 @@ function restruct(data, struct) {
     this.result		= {};
     // Turn structure into predictable objects (no RegExp, undefined
     // or function).  Limits the complex objects to Array's and Dicts
-    data		= JSON.parse(JSON.stringify(data));
     this.struct		= JSON.parse(JSON.stringify(struct));
     this.extend(data, this.struct, this.result);
     this.flatten(this.result, this, 'result');
@@ -47,7 +46,7 @@ restruct.prototype.extend = function (data, struct, result) {
 		var d	= fill(v[0], data);
 		for (var i in d) {
 		    var blob	= d[i];
-		    d[i]		= JSON.parse(JSON.stringify(data));
+		    d[i]	= extend({}, data);
 		    d[i][v[1]]	= blob;
 		}
 	    } else if (typeof v === 'string') {

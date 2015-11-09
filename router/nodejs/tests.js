@@ -259,6 +259,12 @@ knex.transaction(function(trx) {
     	return true;
     });
 
+    test_endpoint('/get/trigger/400', null, function (result) {
+    	if (result.status !== true)
+    	    return ["Unexpected result", result];
+    	return true;
+    });
+
     log.info("Waiting for", tests.length, "to be fullfilled")
     return Promise.all(tests).then(function(all) {
 	// trx.commit();

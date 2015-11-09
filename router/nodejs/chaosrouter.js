@@ -88,6 +88,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     if (!path || path === '')
     	return Endpoint(originalPath, this.config, {}, variables, this);
 
+    var jsonkeys	= [];
     var last_seg;
     for (var i in segs) {
 	var seg		= segs[i];
@@ -121,9 +122,11 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 		    return false;
 
 		variables[vkey.slice(1)]	= seg;
+		jsonkeys.push(vkey);
 	    }
 	    else {
 		data	= data[seg];
+		jsonkeys.push(seg);
 	    }
 	}
 	last_seg	= seg;
@@ -150,6 +153,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	directives	= merged;
     }
 
+    this.jsonpath	= jsonkeys.join('/');
     return Endpoint(originalPath, config, directives, variables, this);
 }
 
@@ -157,12 +161,15 @@ function Endpoint(path, config, directives, path_vars, router) {
     if (! (this instanceof Endpoint))
 	return new Endpoint(path, config, directives, path_vars, router);
 
+    this.jsonpath	= router.jsonpath;
     this.route		= path;
     this.path		= path_vars;
     this.router		= router;
     this.config		= config;
     this.__methods__	= router.__methods__;
-    this.args		= {};
+    this.args		= {
+	"path": path_vars
+    };
     this.directives	= directives;
     if (this.directives['execute'] === undefined)
 	this.directives['execute']	= [[router.defaultExec]];
