@@ -97,6 +97,11 @@ router.executables({
     "fail_false": function(args, _, validate) {
 	validate(false);
     },
+    "Validate": {
+	"pass": function(args, _, validate) {
+	    validate(true);
+	}
+    },
     "TestValidationClass": {
 	"required_not_empty": function(args, _, validate) {
 	    validate({
@@ -235,6 +240,12 @@ knex.transaction(function(trx) {
     	return true;
     });
 
+    test_endpoint('/get/test_validate/1', null, function (result) {
+    	if (result.id !== 1)
+    	    return ["Unexpected result", result];
+    	return true;
+    });
+
     test_endpoint('/get/test_validate/fail_false', null, function (result) {
     	if (result.error !== "Failed Validation")
     	    return ["Unexpected result", result];
@@ -259,11 +270,11 @@ knex.transaction(function(trx) {
     	return true;
     });
 
-    test_endpoint('/get/trigger/400', null, function (result) {
-    	if (result.status !== true)
-    	    return ["Unexpected result", result];
-    	return true;
-    });
+    // test_endpoint('/get/trigger/400', null, function (result) {
+    // 	if (result.status !== true)
+    // 	    return ["Unexpected result", result];
+    // 	return true;
+    // });
 
     log.info("Waiting for", tests.length, "to be fullfilled")
     return Promise.all(tests).then(function(all) {

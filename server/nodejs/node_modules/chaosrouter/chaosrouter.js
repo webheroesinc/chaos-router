@@ -259,8 +259,8 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
     }
     
     var next		= function () {
-	var e		= executes[i+1]
-	self.runMethod(e, n, f);
+	// var e		= executes[i+1]
+	self.runMethod(executes, i+1, resp);
     };
 
     if (typeof exec === 'function') 
@@ -348,7 +348,7 @@ Endpoint.prototype.execute		= function(args) {
 	self.runDirectives().then(function() {	
 	    var validations	= self.directives['validate'];
 	    self.runAll(validations, function(error) {
-		if (error)
+		if (error && error.message !== "End of method chain with no response")
 		    return f(error);
 		self.runAll(self.directives['execute'], f);
 	    });
