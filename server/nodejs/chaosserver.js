@@ -16,6 +16,7 @@ var expressWs		= require('express-ws');
 var Promise		= require('promise');
 var ChaosRouter		= require('chaosrouter');
 var restruct		= ChaosRouter.restruct;
+var fill		= ChaosRouter.populater;
 
 var log			= bunyan.createLogger({
     name: "ChaosServer",
