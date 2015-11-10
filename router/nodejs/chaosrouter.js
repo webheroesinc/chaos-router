@@ -259,8 +259,7 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
     }
     
     var next		= function () {
-	var e		= executes[i+1]
-	self.runMethod(e, n, f);
+	self.runMethod(executes, i+1, resp);
     };
 
     if (typeof exec === 'function') 
@@ -278,7 +277,7 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	    throw Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
     }
 
-    args		= this.recursiveFill(args, this);
+    args		= this.recursiveFill(args, this.args);
     cmd.call(this, args, resp,  function (check) {
 	if (check === true)
 	    next();
@@ -348,7 +347,7 @@ Endpoint.prototype.execute		= function(args) {
 	self.runDirectives().then(function() {	
 	    var validations	= self.directives['validate'];
 	    self.runAll(validations, function(error) {
-		if (error)
+		if (error && error.message !== "End of method chain with no response")
 		    return f(error);
 		self.runAll(self.directives['execute'], f);
 	    });

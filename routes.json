@@ -95,7 +95,7 @@
 	"test_validate": {
 	    ":id": {
 		"#_validate": [
-		    ["required_not_empty", "< path.id"]
+		    ["Validate.pass", "< path.id"]
 		],
 		"#_table": "people",
 		"#_where": "person_id = {path.id}",
