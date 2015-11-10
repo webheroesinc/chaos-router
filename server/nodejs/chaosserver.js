@@ -161,6 +161,7 @@ function serverInit(opts) {
 	    });
 	}
     });
+
     router.directive('response', function (response, next, resp) {
 	if ( typeof response === "string" ) {
 	    response		= fill(response, this.args);
@@ -187,13 +188,57 @@ function serverInit(opts) {
 	}
 	resp(restruct(this.args, response));
     });
+
+    function replaceFileRefs( struct, parents, resp ) {
+	parents			= parents || [];
+	for( var k in struct ) {
+	    var v		= struct[k];
+	    if ( typeof v === 'object' && v !== null || Array.isArray(v) )
+		replaceFileRefs( v );
+
+	    if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
+		var path	= v.substr(5); 
+		if ( parents.indexOf(path) !== -1 )
+		    return resp({
+			"error": "Circular File Call",
+			"message": "The file '"+path+"' is trying to load itself."
+		    });
+		    
+		if(! fs.existsSync(path) ) {
+		    return resp({
+			"error": "Invalid File",
+			"message": "JSON file was not found: "+ path
+		    });
+		}
+		var file	= fs.readFileSync( path, 'utf8' );
+		try {
+		    var loaded	= JSON.parse(file)
+		    parents.push(path);
+		    struct[k]	= replaceFileRefs( loaded, parents, resp );
+		} catch(err) {
+		    return resp({
+			"error": "Invalid File",
+			"message": "File was not valid JSON: "+ path
+		    });
+		}
+	    }
+	}
+	return struct;
+    }
+    
+    router.directive('structure', function (structure, next, resp) {
+	this.directives.structure	= replaceFileRefs( structure, null, resp );
+	next();
+    });
+
     router.directive('structure_update', function (update, next, resp) {
 	if (this.directives['structure'] === undefined)
 	    return resp({
 		error: "Structure Update Failed",
 		message: "Cannot update undefined; no structure is defined at "+this.route
 	    });
-	extend( this.directive['structure'], update );
+	update		= replaceFileRefs(update, null, resp);
+	extend( this.directives['structure'], update );
 	next();
     });
 

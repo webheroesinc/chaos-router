@@ -16,6 +16,35 @@
 		[]
 	    ]
 	},
+	"file": {
+	    "#_table": "people",
+	    "#_structure": {
+		"< person_id": "file:../../json/person.json",
+		"message": "This structure was loaded from a file."
+	    },
+	    "array_test": {
+		"#_base": "..",
+		"#_structure": {
+		    "people": [
+			"file:../../json/person.json"
+		    ],
+		    "message": "This structure should be a list of people."
+		}
+	    },
+	    "structure_update": {
+		"#_base": "..",
+		"#_structure_update": {
+		    "< person_id": "file:../../json/name.json",
+		    "message": "This structure should only include the names of people."
+		}
+	    },
+	    "recursive_failure": {
+		"#_base": "..",
+		"#_structure": {
+		    "< person_id": "file:../../json/circular_failure.json"
+		}
+	    }
+	},
 	"people": {
 	    "#_table": "people",
             "#_structure": {

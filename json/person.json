@@ -1,0 +1,6 @@
+{
+    "id": "< person_id",
+    "name": "file:../../json/name.json",
+    "phone": "< phone_number",
+    "personality": "< personality"
+}
