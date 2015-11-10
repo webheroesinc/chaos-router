@@ -259,7 +259,6 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
     }
     
     var next		= function () {
-	// var e		= executes[i+1]
 	self.runMethod(executes, i+1, resp);
     };
 
@@ -278,7 +277,7 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	    throw Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
     }
 
-    args		= this.recursiveFill(args, this);
+    args		= this.recursiveFill(args, this.args);
     cmd.call(this, args, resp,  function (check) {
 	if (check === true)
 	    next();
