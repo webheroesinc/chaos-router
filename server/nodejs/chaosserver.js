@@ -191,6 +191,11 @@ function serverInit(opts) {
     });
 
     function replaceFileRefs( struct, parents, resp ) {
+	var is_flat		= false;
+	if(typeof struct === "string") {
+	    struct		= [struct];
+	    is_flat		= true;
+	}
 	parents			= parents || [];
 	for( var k in struct ) {
 	    var v		= struct[k];
@@ -198,7 +203,7 @@ function serverInit(opts) {
 		replaceFileRefs( v );
 
 	    if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
-		var path	= v.substr(5); 
+		var path	= v.substr(5);
 		if ( parents.indexOf(path) !== -1 )
 		    return resp({
 			"error": "Circular File Call",
@@ -224,7 +229,7 @@ function serverInit(opts) {
 		}
 	    }
 	}
-	return struct;
+	return is_flat ? struct[0] : struct;
     }
     
     router.directive('structure', function (structure, next, resp) {
