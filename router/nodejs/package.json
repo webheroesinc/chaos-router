@@ -1,6 +1,6 @@
 {
   "name": "chaosrouter",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "ERROR: No README data found!",
   "main": "chaosrouter.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "bunyan": "^1.5.1",
     "populater": "^0.2.2",
     "promise": "^7.0.4",
-    "restruct-data": "^0.2.7"
+    "restruct-data": "^0.2.8"
   },
   "devDependencies": {
     "knex": "^0.9.0",
