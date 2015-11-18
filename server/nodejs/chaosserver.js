@@ -133,16 +133,20 @@ function serverInit(opts) {
 	    }
 	    for (var i=0; i<joins.length; i++) {
     		var join	= joins[i];
-    		var t	= join[0];
-    		var c1	= join[1].join('.');
-    		var c2	= join[2].join('.');
-    		q.leftJoin(knex.raw(t), c1, c2);
+		if (typeof join === 'string')
+    		    q.leftJoin(knex.raw(join));
+		else {
+    		    var t	= join[0];
+    		    var c1	= join[1].join('.');
+    		    var c2	= join[2].join('.');
+    		    q.leftJoin(knex.raw(t), c1, c2);
+		}
 	    }
 	    
 	    if (where)
     		q.where( knex.raw(fill(where, this.args)) );
 
-	    // log.debug("Query: \n"+q.toString());
+	    log.debug("Query: \n"+q.toString());
 
 	    q.then(function(result) {
 		var result	= struct === undefined
@@ -282,56 +286,6 @@ function serverInit(opts) {
     }));
     if (typeof opts.auth === 'function')
 	server.use( opts.auth );
-    
-    server.use( function(req, res, next) {
-	preUpload(req, res, function(err) {
-	    if (err)
-		req.uploadAuth	= err;
-	    else
-		req.uploadAuth	= true;
-	    next();
-	});
-    });
-	
-    var storage		= multer.diskStorage({
-	destination: function(req, file, cb) {
-	    if (req.uploadAuth !== true)
-		cb(req.uploadAuth);
-	    else
-		cb(null, '/tmp');
-	},
-	filename: function(req, file, cb) {
-	    file.ext	= file.originalname.split('.').pop();
-	    var guid	= uuid.v4();
-	    var name	= [guid, file.ext].join('.');
-	    cb(null, name);
-	}
-    })
-    var multerUpload	= multer({ storage: storage });
-    
-    var upload		= {
-	single: function(fieldname) {
-	    return function(req, res, next) {
-		multerUpload.single(fieldname)(req, res, function() {
-		    postUpload(req, res, next);
-		});
-	    }
-	},
-	array: function(fieldname, maxCount) {
-	    return function(req, res, next) {
-		multerUpload.array(fieldname, maxCount)(req, res, function() {
-		    postUpload(req, res, next);
-		});
-	    }
-	},
-	fields: function(fields) {
-	    return function(req, res, next) {
-		multerUpload.fields(fields)(req, res, function() {
-		    postUpload(req, res, next);
-		});
-	    }
-	}
-    }
     server.use( function(req, res, next) {
 	req.data	= extend(req.query, req.body);
 	res.reply	= function(data) {
@@ -347,6 +301,67 @@ function serverInit(opts) {
 	}
 	next();
     });
+	
+    var storage		= multer.diskStorage({
+	destination: function(req, file, cb) {
+	    cb(null, '/tmp');
+	},
+	filename: function(req, file, cb) {
+	    file.ext	= file.originalname.split('.').pop();
+	    var guid	= uuid.v4();
+	    var name	= [guid, file.ext].join('.');
+	    cb(null, name);
+	}
+    })
+    var multerUpload	= multer({ storage: storage });
+    
+    var upload		= {
+	single: function(fieldname) {
+	    return function(req, res, next) {
+		preUpload(req, res, function(err) {
+		    if (err === undefined)
+			multerUpload.single(fieldname)(req, res, function() {
+			    postUpload(req, res, next);
+			});
+		    else
+			res.reply({
+			    "error": err.error || err.name,
+			    "message": err.message
+			});
+		});
+	    }
+	},
+	array: function(fieldname, maxCount) {
+	    return function(req, res, next) {
+		preUpload(req, res, function(err) {
+		    if (err === undefined)
+			multerUpload.array(fieldname, maxCount)(req, res, function() {
+			    postUpload(req, res, next);
+			});
+		    else
+			res.reply({
+			    "error": err.error || err.name,
+			    "message": err.message
+			});
+		});
+	    }
+	},
+	fields: function(fields) {
+	    return function(req, res, next) {
+		preUpload(req, res, function(err) {
+		    if (err === undefined)
+			multerUpload.fields(fields)(req, res, function() {
+			    postUpload(req, res, next);
+			});
+		    else
+			res.reply({
+			    "error": err.error || err.name,
+			    "message": err.message
+			});
+		});
+	    }
+	}
+    }
 
     function subscribe(ws, path) {
 	var ep			= router.route(path);
