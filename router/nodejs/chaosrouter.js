@@ -182,6 +182,7 @@ Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
     }
+    delete args.path;
     for ( var name in args )
 	this.args[name] = args[name];
 }
