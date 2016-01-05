@@ -125,9 +125,21 @@
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
 	    },
+	    "multi_level": {
+		"#_validate": [
+		    "= Failed at level 1"
+		],
+		"level_two": {
+		    "#_validate": [
+			"= Failed at level 2"
+		    ]
+		}
+	    },
 	    "string": {
 		"#_validate": [
-		    "= 'This is not a pass'"
+		    "= true",
+		    "= 'This is not a pass'",
+		    "= false"
 		]
 	    }
 	},

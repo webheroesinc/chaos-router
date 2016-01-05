@@ -74,7 +74,6 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	this.config	= JSON.parse( fs.readFileSync(this.configfile) );
 
     var variables	= {};
-
     if (data === null || path.indexOf('/') === 0) {
 	data		= this.config;
 	parents		= [['', data]];
@@ -90,6 +89,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 
     var jsonkeys	= [];
     var last_seg;
+    
     for (var i in segs) {
 	var seg		= segs[i];
 
@@ -232,17 +232,29 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
     if (exec === undefined)
 	return resp(validationErrorResponse("End of method chain with no response"));
     
+    var next		= function () {
+	self.runMethod(executes, i+1, resp);
+    };
+    var args		= [];
     if (typeof exec === 'string') {
+	// If [exec] is a string, just do a *fill* on [exec]
 	var check	= fill(exec, this);
-	if (check === true)
+	if (check !== true) {
+	    log.warn("check true", exec)
+	    resp(validationErrorResponse(check, exec));
+	}
+	log.info("executes", executes, i, executes.length);
+	// If it is the last exececutable, respond;
+	// else continue through the list.
+	if(executes.length === i+1)
 	    resp();
 	else
-	    resp(validationErrorResponse(check, exec));
+	    next();
 	return;
     }
-    
-    var args		= [];
-    if (Array.isArray(exec)) {
+    else if (Array.isArray(exec)) {
+	// If [exec] is an array, use the first item as the function
+	// name, and following items as arguments.
 	if (exec.length === 0)
 	    return resp({
 		"error": "Routing Syntax Error",
@@ -253,17 +265,15 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	exec		= exec.shift();
     }
     else {
+	// If [exec] is not a string or an array, respond with an error.
 	return resp({
 	    "error": "Routing Syntax Error",
 	    "message": "Execute syntax must be an array with at least one value, NOT: "+ typeof exec
 	});
     }
     
-    var next		= function () {
-	self.runMethod(executes, i+1, resp);
-    };
-
     if (typeof exec === 'function') 
+	// If the original [exec] was an array, and the n
 	cmd		= exec;
     else {
 	try {
@@ -275,13 +285,16 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	    });
 	}
 	if (typeof cmd !== 'function')
-	    throw Error("'"+cmd+"' is not a function.  Found type '"+(typeof cmd)+"'");
+	    throw Error("'"+exec+"' is not a function.  Found type '"+(typeof cmd)+"'");
     }
 
     args		= this.recursiveFill(args, this.args);
+
     cmd.call(this, args, resp,  function (check) {
-	if (check === true)
+	console.log("this should run, no?", check);
+	if (check === true) {
 	    next();
+	}
 	else
 	    resp(validationErrorResponse(check, exec));
     });
