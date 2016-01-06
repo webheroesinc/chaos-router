@@ -89,7 +89,20 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 
     var jsonkeys	= [];
     var last_seg;
+
+    function getDirectives(data) {
+	var directives	= {};
+	for (var k in data) {
+	    if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
+		directives[k.slice(2)]	= data[k];
+		delete data[k];
+	    }
+	}
+	return directives;
+    }
     
+    var directives	= {};
+    var validates	= [];
     for (var i in segs) {
 	var seg		= segs[i];
 
@@ -117,7 +130,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 		}
 		var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
 		data		= vkey === null ? null : data[vkey];
-
+		
 		if (data === null)
 		    return false;
 
@@ -128,18 +141,15 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 		data	= data[seg];
 		jsonkeys.push(seg);
 	    }
+	    // Attach the parent validations to this layer
+	    if(directives.validate) {
+		data['#_validate']	= directives.validate.concat( data['#_validate'] || [] );
+	    }
+	    directives	= getDirectives(data);
 	}
 	last_seg	= seg;
     }
     
-    var directives	= {};
-    for (var k in data) {
-	if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
-	    directives[k.slice(2)]	= data[k];
-	    delete data[k];
-	}
-    }
-
     if (directives['base'] === undefined)
 	var config	= extend({}, data);
     else {
@@ -213,7 +223,7 @@ Endpoint.prototype.respondWith		= function(path, cb) {
 	})
 }
 function validationErrorResponse(check, command) {
-    if (check.error && check.message)
+    if (check !== undefined && check.error && check.message)
 	return check;
     else {
 	var message	= "Failed at rule "+command;
@@ -240,10 +250,8 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	// If [exec] is a string, just do a *fill* on [exec]
 	var check	= fill(exec, this);
 	if (check !== true) {
-	    log.warn("check true", exec)
 	    resp(validationErrorResponse(check, exec));
 	}
-	log.info("executes", executes, i, executes.length);
 	// If it is the last exececutable, respond;
 	// else continue through the list.
 	if(executes.length === i+1)
@@ -291,7 +299,6 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
     args		= this.recursiveFill(args, this.args);
 
     cmd.call(this, args, resp,  function (check) {
-	console.log("this should run, no?", check);
 	if (check === true) {
 	    next();
 	}

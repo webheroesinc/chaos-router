@@ -167,10 +167,10 @@ function test_endpoint( endpoint, data, cb ) {
 knex.transaction(function(trx) {
     test_endpoint.db	= trx;
     test_endpoint('/get/people', null, function(result) {
-	if (Object.keys(result).length < 80) {
-	    return ["Unexpected result", result];
-	}
-	return true;
+    	if (Object.keys(result).length < 80) {
+    	    return ["Unexpected result", result];
+    	}
+    	return true;
     })
     
     test_endpoint('/get/test_method', {
@@ -204,11 +204,11 @@ knex.transaction(function(trx) {
     });
 
     test_endpoint('/get/responses/dynamic', {
-	"name": {
-	    "first": "Ricky",
-	    "last": "Bobby",
-	    "full": "Ricky Bobby"
-	}
+    	"name": {
+    	    "first": "Ricky",
+    	    "last": "Bobby",
+    	    "full": "Ricky Bobby"
+    	}
     }, function (result) {
     	if (result.first === undefined) {
     	    return ["Unexpected result", result] ;
@@ -217,9 +217,9 @@ knex.transaction(function(trx) {
     });
 
     test_endpoint('/get/responses/dynamic', {
-	"name": {
-	    "test": "< exact"
-	}
+    	"name": {
+    	    "test": "< exact"
+    	}
     }, function (result) {
     	if (result.test !== "< exact") {
     	    return ["Unexpected result", result] ;
@@ -270,21 +270,19 @@ knex.transaction(function(trx) {
     	return true;
     });
 
-    // test_endpoint('/get/test_validate/multi_level/level_two', null, function (result) {
-    // 	if (result.message === "Failed at level 1")
-    // 	    return ["Unexpected result", result];
-    // 	return true;
-    // });
+    test_endpoint('/get/test_validate/multi_level/level_two', null, function (result) {
+    	if (result.message !== "Failed at rule = Failed at level 1")
+    	    return ["Unexpected result", result];
+    	return true;
+    });
 
-
-    
     // test_endpoint('/get/trigger/400', null, function (result) {
     // 	if (result.status !== true)
     // 	    return ["Unexpected result", result];
     // 	return true;
     // });
 
-    log.info("Waiting for", tests.length, "to be fullfilled")
+    log.info("Waiting for", tests.length, "to be fulfilled")
     return Promise.all(tests).then(function(all) {
 	// trx.commit();
 	// return Promise.resolve();
@@ -295,7 +293,7 @@ knex.transaction(function(trx) {
     log.info("Destroying knex context");
     knex.destroy();
 }, function(err) {
-    log.error("Refject failure");
+    log.error("Reject failure");
     log.error(err);
     knex.destroy();
 }).catch( function(err) {
