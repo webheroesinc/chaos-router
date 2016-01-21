@@ -20,7 +20,7 @@ var fill		= ChaosRouter.populater;
 
 var log			= bunyan.createLogger({
     name: "ChaosServer",
-    level: 'error'
+    level: module.parent ? 'error' : 'trace'
 });
 function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
@@ -326,17 +326,12 @@ function serverInit(opts) {
 	return Qs.parse(querystr, { parseArrays: false });
     });
 
-    server.use( function(req, res, next) {
-	next();
-    });
     server.use( express.static(opts['static'] || 'public') );
     server.use( cookie_parser() );
     server.use( body_parser.json() );
     server.use( body_parser.urlencoded({
 	extended: true
     }));
-    if (typeof opts.auth === 'function')
-	server.use( opts.auth );
     server.use( function(req, res, next) {
 	req.data	= extend(req.query, req.body);
 	res.reply	= function(data) {
@@ -352,6 +347,9 @@ function serverInit(opts) {
 	}
 	next();
     });
+    
+    if (typeof opts.auth === 'function')
+	server.use( opts.auth );
 	
     var storage		= multer.diskStorage({
 	destination: function(req, file, cb) {

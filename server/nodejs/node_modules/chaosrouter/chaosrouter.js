@@ -9,7 +9,7 @@ var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
     name: "ChaosRouter",
-    level: 'trace'
+    level: module.parent ? 'error' : 'trace'
 });
 function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
@@ -133,7 +133,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    
 	    // Add this level's validates to validations list
 	    if(data[validateKey])
-		validates.splice.call(validates, [validates.length-1, 0].concat(data[validateKey]));
+		validates.splice.apply(validates, [validates.length-1, 0].concat(data[validateKey]));
 	}
 	
 	last_seg	= seg;
