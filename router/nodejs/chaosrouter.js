@@ -133,7 +133,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    
 	    // Add this level's validates to validations list
 	    if(data[validateKey])
-		validates.splice(validates.length-1, 0, data[validateKey]);
+		validates.splice.call(validates, [validates.length-1, 0].concat(data[validateKey]));
 	}
 	
 	last_seg	= seg;
@@ -147,6 +147,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    delete data[k];
 	}
     }
+    directives['validate']	= validates;
     
     if (directives['base'] === undefined)
 	var config	= extend({}, data);
