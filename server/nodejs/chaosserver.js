@@ -20,7 +20,7 @@ var fill		= ChaosRouter.populater;
 
 var log			= bunyan.createLogger({
     name: "ChaosServer",
-    level: 'trace'
+    level: 'error'
 });
 function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
@@ -147,7 +147,7 @@ function serverInit(opts) {
 	    if (where)
     		q.where( knex.raw(fill(where, this.args)) );
 
-	    log.debug("Query: \n"+q.toString());
+	    log.trace("Query: \n"+q.toString());
 
 	    q.then(function(result) {
 		var result	= struct === undefined
