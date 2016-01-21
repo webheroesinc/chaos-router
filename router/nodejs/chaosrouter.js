@@ -90,19 +90,8 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     var jsonkeys	= [];
     var last_seg;
 
-    function getDirectives(data) {
-	var directives	= {};
-	for (var k in data) {
-	    if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
-		directives[k.slice(2)]	= data[k];
-		delete data[k];
-	    }
-	}
-	return directives;
-    }
-    
-    var directives	= {};
-    var validates	= [];
+    var validateKey	= ChaosRouter.directivePrefix+'validate';
+    var validates	= data[validateKey] || [];
     for (var i in segs) {
 	var seg		= segs[i];
 
@@ -141,13 +130,22 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 		data	= data[seg];
 		jsonkeys.push(seg);
 	    }
-	    // Attach the parent validations to this layer
-	    if(directives.validate) {
-		data['#_validate']	= directives.validate.concat( data['#_validate'] || [] );
-	    }
-	    directives	= getDirectives(data);
+	    
+	    // Add this level's validates to validations list
+	    if(data[validateKey])
+		validates.splice(validates.length-1, 0, data[validateKey]);
 	}
+	
 	last_seg	= seg;
+    }
+    
+    var directives	= {};
+    for (var k in data) {
+	if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
+	    var name		= k.slice(ChaosRouter.directivePrefix.length);
+	    directives[name]	= data[k];
+	    delete data[k];
+	}
     }
     
     if (directives['base'] === undefined)
