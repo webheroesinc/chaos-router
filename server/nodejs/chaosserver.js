@@ -113,6 +113,7 @@ function serverInit(opts) {
     if ( opts.routes === undefined )
 	throw Error("Missing required router settings 'routes'");
     
+    var basepath	= opts.basepath || '.';
     var router		= ChaosRouter(opts.routes, {
 	defaultExec: function (args, resp) {
 	    var knex	= this.args.db;
@@ -207,7 +208,7 @@ function serverInit(opts) {
 		replaceFileRefs( v );
 
 	    if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
-		var path	= v.substr(5);
+		var path	= basepath +'/'+ v.substr(5);
 		if ( parents.indexOf(path) !== -1 )
 		    return resp({
 			"error": "Circular File Call",
