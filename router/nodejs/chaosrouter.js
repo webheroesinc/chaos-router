@@ -180,8 +180,11 @@ function Endpoint(path, config, directives, path_vars, router) {
 	"path": path_vars
     };
     this.directives	= directives;
+    
     if (this.directives['execute'] === undefined)
-	this.directives['execute']	= [[router.defaultExec]];
+	this.directives['execute']	= [];
+    
+    this.directives['execute'].push([router.defaultExec]);
 }
 Endpoint.prototype.directive		= function (name, fn) {
     if (fn === undefined)
