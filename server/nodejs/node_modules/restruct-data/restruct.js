@@ -16,6 +16,7 @@ function restruct(data, struct) {
 restruct.flattenTrigger	= '.array';
 restruct.rescopeTrigger	= '.rescope';
 restruct.indexKey	= '$index';
+restruct.parentKey	= '$parent';
 restruct.prototype.flatten = function (result, parent, key) {
     // Go through entire result and flatten dicts that contain
     // this.flattenTrigger command.  If not true just remove command.
@@ -117,6 +118,7 @@ restruct.prototype.extend_list = function (rows, struct, result) {
     else {
 	for (var i in rows) {
 	    rows[i][restruct.indexKey]	= parseInt(i);
+	    rows[i][restruct.parentKey]	= rows;
 	    this.extend(rows[i], struct, result);
 	}
     }
