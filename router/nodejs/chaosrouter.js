@@ -81,11 +81,25 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    path	= path.slice(this.basepath.length);
     }
 
+    function getDirectives(data) {
+	var directives	= {};
+	for (var k in data) {
+	    if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
+		var name		= k.slice(ChaosRouter.directivePrefix.length);
+		directives[name]	= data[k];
+		delete data[k];
+	    }
+	}
+	return directives;
+    }
+
     // Remove leading and trailing slashes.
     var _p		= path.replace(/^\//, "").replace(/\/*$/, "")
     var segs		= _p.split('/');
-    if (!path || path === '')
-    	return Endpoint(originalPath, this.config, {}, variables, this);
+    if (!path || path === '') {
+	var directives	= getDirectives(this.config);
+    	return Endpoint(originalPath, this.config, directives, variables, this);
+    }
 
     var jsonkeys	= [];
     var last_seg;
@@ -139,14 +153,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	last_seg	= seg;
     }
     
-    var directives	= {};
-    for (var k in data) {
-	if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
-	    var name		= k.slice(ChaosRouter.directivePrefix.length);
-	    directives[name]	= data[k];
-	    delete data[k];
-	}
-    }
+    var directives		= getDirectives(data);
     directives['validate']	= validates;
     
     if (directives['base'] === undefined)
@@ -338,11 +345,9 @@ Endpoint.prototype.runDirectives	= function(i, next, resp) {
 	    return Promise.resolve();
 	return next();
     }
-
+    
     var directive		= this.router.__directives__[key];
-    
-    var self		= this;
-    
+    var self			= this;
     function cont(f,r) {
     	if (self.directives[key] === undefined) {
 	    self.runDirectives(i+1, f,r)
