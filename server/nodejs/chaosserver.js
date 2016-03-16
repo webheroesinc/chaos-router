@@ -195,60 +195,12 @@ function serverInit(opts) {
 	resp(restruct(this.args, response));
     });
 
-    function replaceFileRefs( struct, parents, resp ) {
-	var is_flat		= false;
-	if(typeof struct === "string") {
-	    struct		= [struct];
-	    is_flat		= true;
-	}
-	parents			= parents || [];
-	for( var k in struct ) {
-	    var v		= struct[k];
-	    if ( typeof v === 'object' && v !== null || Array.isArray(v) )
-		replaceFileRefs( v );
-
-	    if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
-		var path	= basepath +'/'+ v.substr(5);
-		if ( parents.indexOf(path) !== -1 )
-		    return resp({
-			"error": "Circular File Call",
-			"message": "The file '"+path+"' is trying to load itself."
-		    });
-		    
-		if(! fs.existsSync(path) ) {
-		    return resp({
-			"error": "Invalid File",
-			"message": "JSON file was not found: "+ path
-		    });
-		}
-		var file	= fs.readFileSync( path, 'utf8' );
-		try {
-		    var loaded	= JSON.parse(file)
-		    parents.push(path);
-		    struct[k]	= replaceFileRefs( loaded, parents, resp );
-		} catch(err) {
-		    return resp({
-			"error": "Invalid File",
-			"message": "File was not valid JSON: "+ path
-		    });
-		}
-	    }
-	}
-	return is_flat ? struct[0] : struct;
-    }
-    
-    router.directive('structure', function (structure, next, resp) {
-	this.directives.structure	= replaceFileRefs( structure, null, resp );
-	next();
-    });
-
     router.directive('structure_update', function (update, next, resp) {
 	if (this.directives['structure'] === undefined)
 	    return resp({
 		error: "Structure Update Failed",
 		message: "Cannot update undefined; no structure is defined at "+this.route
 	    });
-	update		= replaceFileRefs(update, null, resp);
 	extend( this.directives['structure'], update );
 	next();
     });
@@ -462,4 +414,5 @@ function serverInit(opts) {
     return server;
 }
 
+serverInit.ChaosRouter	= ChaosRouter;
 module.exports		= serverInit
