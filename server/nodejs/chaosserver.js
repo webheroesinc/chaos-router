@@ -207,7 +207,6 @@ function serverInit(opts) {
 
     var _route_		= router.route;
     router.route	= function() {
-	var self		= this;
 	var endpoint		= _route_.apply(this, arguments);
 	var _execute_		= endpoint.execute;
 	endpoint.execute	= function(data) {
@@ -215,17 +214,37 @@ function serverInit(opts) {
 	    return _execute_.call(this, data).then(function(result) {
 		if (!result.error) {
 		    self.args.$result	= result;
+		    var requester	= self.args.auth;
 		    self.recursiveFill(self.directives.trigger, self.args);
 		    for(var i in self.directives.trigger) {
-			var path	= self.directives.trigger[i];
-			var subs	= getSubscribers(path);
-			for (var id in subs) {
-			    var ws	= subs[id];
-			    if (ws.readyState === 1)
-			    	ws.send(json(result));
-			    else
-			    	log.error("WS Connection is closed", ws.id);
-			}
+			(function(path) {
+			    var subs	= getSubscribers(path);
+			    log.error("Routing trigger path", path);
+			    router
+				.route(path)
+				.execute(self.args)
+				.then(function(payload) {
+				    payload.auth	= requester;
+				    log.error("PAYLOAD", payload);
+				    
+				    for (var id in subs) {
+					var ws		= subs[id];
+					payload.path	= ws.path;
+					
+					if (self.args.method === "WEBSOCKET"
+					    && ws.id === self.args.wsID)
+					    continue;
+					
+					log.error("Sending payload to WS", ws.id);
+					if (ws.readyState === 1)
+			    		    ws.send(json(payload));
+					else
+			    		    log.error("WS Connection is closed", ws.id);
+				    }
+				}).catch(function(err) {
+				    log.error(err);
+				});
+			})(self.directives.trigger[i]);
 		    }
 		}
 		return Promise.resolve(result);
@@ -302,7 +321,7 @@ function serverInit(opts) {
     
     if (typeof opts.auth === 'function')
 	server.use( opts.auth );
-	
+
     var storage		= multer.diskStorage({
 	destination: function(req, file, cb) {
 	    cb(null, '/tmp');
@@ -365,6 +384,7 @@ function serverInit(opts) {
     }
 
     function subscribe(ws, path) {
+	ws.path			= path;
 	var ep			= router.route(path);
 	
 	var segs		= [];
@@ -385,32 +405,95 @@ function serverInit(opts) {
 	return addSubscriber(ws, segs.join('/'));
     }
     function ws_reply(ws, data) {
-        ws.send( JSON.stringify(data) );
+	ws.send( JSON.stringify(data) );
     }
     var i	= 0;
-    server.ws('/', function (ws, req) {
-	ws.id		= i++;
-        var session_key		= req.cookies.session;
-        ws.on('message', function(msg) {
-    	    var data		= JSON.parse(msg);
-	    if (ws.subscriptions === undefined)
-		ws.subscriptions	= {};
-	    ws.subscriptions[data.subscribe]	= true;
-	    subscribe(ws, data.subscribe);
-    	});
-        ws.on('close', function() {
-	    for (var path in ws.subscriptions) {
-		var ep		= router.route(path);
-		removeSubscriber(ws, ep.jsonpath);
-	    }
-    	});
+    var authJson		= JSON.parse( fs.readFileSync("./json/auth.json", 'utf8' ) );
+    var knex			= require('knex')({
+	client: 'mysql',
+	connection: {
+	    host: 'localhost',
+	    user: 'root',
+	    password: 'testing',
+	    database: 'document_system'
+	}
     });
-    
+
+    server.ws('/', function (ws, req) {
+	try {
+    	    ws.id		= i++;
+            var session_key	= req.cookies.session;
+	    var $session	= router.baseArgs.coauth.session(session_key);
+	    ws.session		= $session;
+	    $session.user( function($auth) {
+    		knex('users')
+    		    .where('uuid', $auth.id)
+    		    .then(function(data) {
+			log.error("WS Auth", data);
+			ws.auth		= restruct(data, authJson);
+		    });
+	    });
+	    
+            ws.on('message', function(msg) {
+    		var data	= JSON.parse(msg);
+		var path	= data.subscribe || data.path;
+
+		if (data.subscribe) {
+		    log.error("Subscribe WS", ws.id, "to path", path);
+    		    if (ws.subscriptions === undefined)
+    			ws.subscriptions	= {};
+		    
+    		    ws.subscriptions[path]	= true;
+    		    subscribe(ws, path);
+		}
+		else {
+		    log.error("Path", data.path);
+		    var sid		= data.serial;
+		    if (sid === undefined)
+			ws.send(json({
+			    "error": "Missing Serial",
+			    "message": "All websocket requests must contain a serial number for tracking responses.",
+			    "request": data,
+			}));
+		    else {
+			router.route(path).execute({
+			    method: "WEBSOCKET",
+			    wsID: ws.id,
+			    data: data.data,
+			    files: [],
+			    auth: ws.auth,
+			    session: ws.session,
+			    request: data,
+			    response: null,
+			}).then(function(data) {
+			    data.serial	= sid;
+			    log.error("RESPONSE PAYLOAD", data);
+			    ws.send(json(data));
+			}, function(err) {
+			    err.serial	= sid;
+			    log.error("Sending error to WS", ws.id, "Serial ID", sid);
+			    ws.send(json(err));
+			});
+		    }
+		}
+    	    });
+	    
+            ws.on('close', function() {
+    		for (var path in ws.subscriptions) {
+    		    var ep		= router.route(path);
+    		    removeSubscriber(ws, ep.jsonpath);
+    		}
+    	    });
+	}
+	catch (err) {
+	    log.error(err);
+	}
+    });
+    server.upload	= upload;
 
     server.getRouter	= function() {
 	return router;
     }
-    server.upload	= upload;
     return server;
 }
 
