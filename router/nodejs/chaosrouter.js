@@ -84,6 +84,7 @@ function ChaosRouter(data, opts) {
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
     this.defaultExec	= opts.defaultExec;
+    this.baseArgs	= {}
 
     if (opts.defaultExec === undefined)
 	throw new Error("defaultExec is required");
@@ -219,6 +220,13 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     this.jsonpath	= jsonkeys.join('/');
     return Endpoint(originalPath, config, directives, variables, this);
 }
+ChaosRouter.prototype.set_arguments	= function(args) {
+    if (!is_iterable(args))
+	return false;
+    
+    for ( var name in args )
+	this.baseArgs[name] = args[name];
+}
 
 function Endpoint(path, config, directives, path_vars, router) {
     if (! (this instanceof Endpoint))
@@ -230,9 +238,9 @@ function Endpoint(path, config, directives, path_vars, router) {
     this.router		= router;
     this.config		= config;
     this.__methods__	= router.__methods__;
-    this.args		= {
+    this.args		= extend(extend({}, router.baseArgs), {
 	"path": path_vars
-    };
+    });
     this.directives	= directives;
     
     if (this.directives['execute'] === undefined)
@@ -277,7 +285,6 @@ Endpoint.prototype.method		= function() {
     var self		= this;
     return new Promise(function(f,r) {
 	cmd.call(self, args, f,  function (check) {
-	    log.error(check);
 	    check === true ? f() : r(check);
 	});
     });
