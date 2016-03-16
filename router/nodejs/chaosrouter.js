@@ -34,6 +34,49 @@ function is_iterable(d) {
     return true;
 }
 
+var basepath	= '.';
+function replaceFileRefs( struct, parents, resp ) {
+    var is_flat		= false;
+    if(typeof struct === "string") {
+	struct		= [struct];
+	is_flat		= true;
+    }
+    parents			= parents || [];
+    for( var k in struct ) {
+	var v		= struct[k];
+	if ( typeof v === 'object' && v !== null || Array.isArray(v) )
+	    replaceFileRefs( v );
+
+	if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
+	    var path	= basepath +'/'+ v.substr(5);
+	    if ( parents.indexOf(path) !== -1 )
+		return resp({
+		    "error": "Circular File Call",
+		    "message": "The file '"+path+"' is trying to load itself."
+		});
+	    
+	    if(! fs.existsSync(path) ) {
+		return resp({
+		    "error": "Invalid File",
+		    "message": "JSON file was not found: "+ path
+		});
+	    }
+	    var file	= fs.readFileSync( path, 'utf8' );
+	    try {
+		var loaded	= JSON.parse(file)
+		parents.push(path);
+		struct[k]	= replaceFileRefs( loaded, parents, resp );
+	    } catch(err) {
+		return resp({
+		    "error": "Invalid File",
+		    "message": "File was not valid JSON: "+ path
+		});
+	    }
+	}
+    }
+    return is_flat ? struct[0] : struct;
+}
+
 function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
 	return new ChaosRouter(data, opts);
@@ -70,8 +113,12 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     data		= setdefault(data, null);
     parents		= setdefault(parents, null);
 
-    if (this.configfile !== null)
-	this.config	= JSON.parse( fs.readFileSync(this.configfile) );
+    if (this.configfile !== null) {
+	var config	= JSON.parse( fs.readFileSync(this.configfile) );
+	this.config	= replaceFileRefs( config, null, function(err) {
+	    throw Error(err.error+': '+err.message);
+	});
+    }
 
     var variables	= {};
     if (data === null || path.indexOf('/') === 0) {
@@ -224,9 +271,20 @@ Endpoint.prototype.recursiveFill= function(args, data) {
     }
     return args;
 }
+Endpoint.prototype.method		= function() {
+    var args		= Array.prototype.slice.call(arguments);
+    var cmd		= eval("this.__methods__."+args.shift());
+    var self		= this;
+    return new Promise(function(f,r) {
+	cmd.call(self, args, f,  function (check) {
+	    log.error(check);
+	    check === true ? f() : r(check);
+	});
+    });
+}
 Endpoint.prototype.respondWith		= function(path, cb) {
     var endpoint	= this.router.route(path);
-    endpoint.execute(this.args)
+    endpoint.execute(extend({}, this.args))
 	.then(function(d) {
 	    cb(d);
 	})
