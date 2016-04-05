@@ -45,7 +45,7 @@ function replaceFileRefs( struct, parents, resp ) {
     for( var k in struct ) {
 	var v		= struct[k];
 	if ( typeof v === 'object' && v !== null || Array.isArray(v) )
-	    replaceFileRefs( v );
+	    replaceFileRefs( v, undefined, resp );
 
 	if ( typeof v === 'string' && v.indexOf('file:') === 0 ) {
 	    var path	= basepath +'/'+ v.substr(5);
@@ -65,12 +65,17 @@ function replaceFileRefs( struct, parents, resp ) {
 	    try {
 		var loaded	= JSON.parse(file)
 		parents.push(path);
-		struct[k]	= replaceFileRefs( loaded, parents, resp );
 	    } catch(err) {
 		return resp({
 		    "error": "Invalid File",
 		    "message": "File was not valid JSON: "+ path
 		});
+	    }
+	    try {
+		struct[k]	= replaceFileRefs( loaded, parents, resp );
+	    } catch(err) {
+		log.error(err);
+		return resp(err);
 	    }
 	}
     }
@@ -233,7 +238,7 @@ function Endpoint(path, config, directives, path_vars, router) {
 	return new Endpoint(path, config, directives, path_vars, router);
 
     this.jsonpath	= router.jsonpath;
-    this.route		= path;
+    this.path		= path;
     this.path		= path_vars;
     this.router		= router;
     this.config		= config;
@@ -289,8 +294,21 @@ Endpoint.prototype.method		= function() {
 	});
     });
 }
+Endpoint.prototype.route		= function(path) {
+    var endpoint	= this.router.route(path);
+    var self		= this;
+    return new Promise(function(f,r) {
+	endpoint.execute(extend({}, self.args))
+	    .then(function(d) {
+		d.error ? r(d) : f(d);
+	    },r);
+    });
+}
 Endpoint.prototype.respondWith		= function(path, cb) {
     var endpoint	= this.router.route(path);
+    if (!endpoint)
+	cb({ error: "Dead End",
+	     message: "Respond endpoint '"+path+"' does not exist." });
     endpoint.execute(extend({}, this.args))
 	.then(function(d) {
 	    cb(d);
@@ -372,13 +390,21 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 
     args		= this.recursiveFill(args, this.args);
 
-    cmd.call(this, args, resp,  function (check) {
-	if (check === true) {
-	    next();
-	}
-	else
-	    resp(validationErrorResponse(check, exec));
-    });
+    try {
+	cmd.call(this, args, resp,  function (check) {
+	    if (check === true) {
+		next();
+	    }
+	    else
+		resp(validationErrorResponse(check, exec));
+	});
+    } catch (err) {
+	log.error(err);
+	resp({
+	    error: err.name,
+	    message: err.message
+	});
+    }
 }
 Endpoint.prototype.runAll		= function(executables, cb) {
     if (executables === undefined)
@@ -414,14 +440,22 @@ Endpoint.prototype.runDirectives	= function(i, next, resp) {
     var directive		= this.router.__directives__[key];
     var self			= this;
     function cont(f,r) {
-    	if (self.directives[key] === undefined) {
-	    self.runDirectives(i+1, f,r)
-	}
-	else {
-    	    directive.call(self, self.directives[key], function() {
+	try {
+    	    if (self.directives[key] === undefined) {
 		self.runDirectives(i+1, f,r)
-	    }, r);
-    	}
+	    }
+	    else {
+    		directive.call(self, self.directives[key], function() {
+		    self.runDirectives(i+1, f,r)
+		}, r);
+    	    }
+	} catch (err) {
+	    log.error(err);
+	    r({
+		error: err.name,
+		message: err.message
+	    });
+	}
     }
     
     if (next === undefined) {
