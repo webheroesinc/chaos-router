@@ -101,7 +101,8 @@ function ChaosRouter(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
-ChaosRouter.directivePrefix		= '#_';
+ChaosRouter.directivePrefix		= '__';
+ChaosRouter.directiveSuffix		= '__';
 ChaosRouter.prototype.__directives__	= {};
 ChaosRouter.prototype.directive		= function (name, fn) {
     if (name === undefined || fn === undefined)
@@ -137,8 +138,10 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     function getDirectives(data) {
 	var directives	= {};
 	for (var k in data) {
-	    if (k.indexOf(ChaosRouter.directivePrefix) === 0) {
-		var name		= k.slice(ChaosRouter.directivePrefix.length);
+	    var noprefix	= k.slice(ChaosRouter.directivePrefix.length);
+	    if ( k.indexOf(ChaosRouter.directivePrefix) === 0
+		 && noprefix.indexOf(ChaosRouter.directiveSuffix) === (noprefix.length - ChaosRouter.directiveSuffix.length)) {
+		var name		= k.slice(ChaosRouter.directivePrefix.length, -ChaosRouter.directiveSuffix.length);
 		directives[name]	= data[k];
 		delete data[k];
 	    }
@@ -157,7 +160,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
     var jsonkeys	= [];
     var last_seg;
 
-    var validateKey	= ChaosRouter.directivePrefix+'validate';
+    var validateKey	= ChaosRouter.directivePrefix+'validate'+ChaosRouter.directiveSuffix;
     var validates	= data[validateKey] || [];
     for (var i in segs) {
 	var seg		= segs[i];
@@ -190,7 +193,7 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 		if (data === null)
 		    return false;
 
-		variables[vkey.slice(1)]	= seg;
+		variables[vkey.slice(1)]	= unescape(seg);
 		jsonkeys.push(vkey);
 	    }
 	    else {
@@ -239,7 +242,7 @@ function Endpoint(path, config, directives, path_vars, router) {
 
     this.jsonpath	= router.jsonpath;
     this.path		= path;
-    this.path		= path_vars;
+    this.path_vars	= path_vars;
     this.router		= router;
     this.config		= config;
     this.__methods__	= router.__methods__;
@@ -284,6 +287,10 @@ Endpoint.prototype.recursiveFill= function(args, data) {
     }
     return args;
 }
+Endpoint.prototype.explode		= function(args, fn, context) {
+    var ctx		= context || this;
+    return fn.apply(ctx, args);
+}
 Endpoint.prototype.method		= function() {
     var args		= Array.prototype.slice.call(arguments);
     var cmd		= eval("this.__methods__."+args.shift());
@@ -298,6 +305,10 @@ Endpoint.prototype.route		= function(path) {
     var endpoint	= this.router.route(path);
     var self		= this;
     return new Promise(function(f,r) {
+	if (!endpoint)
+	    r({ error: "Dead End",
+		message: "Respond endpoint '"+path+"' does not exist." });
+	
 	endpoint.execute(extend({}, self.args))
 	    .then(function(d) {
 		d.error ? r(d) : f(d);
