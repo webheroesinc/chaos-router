@@ -326,34 +326,34 @@ Endpoint.prototype.respondWith		= function(path, cb) {
 	})
 }
 function validationErrorResponse(check, command) {
-    if (check !== undefined && check.error && check.message)
+    if (typeof check === 'object' && check !== null)
 	return check;
     else {
 	var message	= "Failed at rule "+command;
 	return {
 	    "error": "Failed Validation",
-	    "message": typeof check === 'string' ? check : message
+	    "message": typeof check === 'string' ? check : message,
 	};
     }
 }
-Endpoint.prototype.runMethod		= function(executes, i, resp) {
+Endpoint.prototype.runMethod		= function(executes, i, resp, err) {
     // Assuming we have a list of executes, we want to run them one at a time and only run the next
     // one if the previous is fulfilled.
     var self		= this;
     var exec		= executes[i];
 
     if (exec === undefined)
-	return resp(validationErrorResponse("End of method chain with no response"));
+	return err(validationErrorResponse("End of method chain with no response: exec === undefined"));
     
     var next		= function () {
-	self.runMethod(executes, i+1, resp);
+	self.runMethod(executes, i+1, resp, err);
     };
     var args		= [];
     if (typeof exec === 'string') {
 	// If [exec] is a string, just do a *fill* on [exec]
 	var check	= fill(exec, this);
 	if (check !== true) {
-	    resp(validationErrorResponse(check, exec));
+	    err(validationErrorResponse(check, exec));
 	}
 	// If it is the last exececutable, respond;
 	// else continue through the list.
@@ -390,7 +390,7 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	try {
 	    cmd		= eval("self.__methods__."+exec);
 	} catch (err) {
-	    return resp({
+	    return err({
 		"error": err.name,
 		"message": err.message
 	    });
@@ -403,11 +403,11 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 
     try {
 	cmd.call(this, args, resp,  function (check) {
-	    if (check === true) {
+	    if (check === true)
 		next();
+	    else {
+		err(validationErrorResponse(check, exec));
 	    }
-	    else
-		resp(validationErrorResponse(check, exec));
 	});
     } catch (err) {
 	log.error(err);
@@ -417,16 +417,16 @@ Endpoint.prototype.runMethod		= function(executes, i, resp) {
 	});
     }
 }
-Endpoint.prototype.runAll		= function(executables, cb) {
+Endpoint.prototype.runAll		= function(executables, cb, err) {
     if (executables === undefined)
 	return cb();
     
     var self		= this;
     if (typeof executables === 'string') {
-	self.runMethod([executables], 0, cb);
+	self.runMethod([executables], 0, cb, err);
     }
     else if (Array.isArray(executables)) {
-	self.runMethod(executables, 0, cb);
+	self.runMethod(executables, 0, cb, err);
     }
     else {
 	cb({
@@ -477,18 +477,31 @@ Endpoint.prototype.runDirectives	= function(i, next, resp) {
     else
 	cont(next, resp);
 }
+
+function promiseSequence(sequence) {
+    return sequence.shift().then(function(data) {
+	if (sequence.length)
+	    return promiseSequence(sequence);
+	else
+	    return data;
+    });
+}
+
 Endpoint.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
 
     var self		= this;
     return new Promise(function(f,r) {
-	self.runDirectives().then(function() {	
+	self.runDirectives().then(function() {
+	    function next() {
+		self.runAll(self.directives['execute'], f, r);
+	    }
+	    
 	    var validations	= self.directives['validate'];
-	    self.runAll(validations, function(error) {
-		if (error && error.message !== "End of method chain with no response")
-		    return f(error);
-		self.runAll(self.directives['execute'], f);
-	    });
+	    if (validations.length)
+		self.runAll(validations, next, r);
+	    else
+		next();
 	}, f).catch(r);
     });
 }
