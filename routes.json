@@ -1,30 +1,30 @@
 {
     "chat": {
 	":room": {
-	    "#_response": {
+	    "__response__": {
 		"title": "< data.title",
 		"message": "< data.message"
 	    },
-	    "#_trigger": [
+	    "__trigger__": [
 		"/chat/{path.room}"
 	    ]
 	}
     },
     "get": {
 	"empty_method": {
-	    "#_execute": [
+	    "__execute__": [
 		[]
 	    ]
 	},
 	"file": {
-	    "#_table": "people",
-	    "#_structure": {
+	    "__table__": "people",
+	    "__structure__": {
 		"< person_id": "file:../../json/person.json",
 		"message": "This structure was loaded from a file."
 	    },
 	    "array_test": {
-		"#_base": "..",
-		"#_structure": {
+		"__base__": "..",
+		"__structure__": {
 		    "people": [
 			"file:../../json/person.json"
 		    ],
@@ -32,69 +32,69 @@
 		}
 	    },
 	    "structure_update": {
-		"#_base": "..",
-		"#_structure_update": {
+		"__base__": "..",
+		"__structure_update__": {
 		    "< person_id": "file:../../json/name.json",
 		    "message": "This structure should only include the names of people."
 		}
 	    },
 	    "recursive_failure": {
-		"#_base": "..",
-		"#_structure": {
-		    "< person_id": "file:../../json/circular_failure.json"
+		"__base__": "..",
+		"__structure__": {
+		    "< person_id": "#file:../../json/circular_failure.json"
 		}
 	    }
 	},
 	"people": {
-	    "#_table": "people",
-            "#_structure": {
+	    "__table__": "people",
+            "__structure__": {
 		"< person_id": "file:../../json/person.json"
             },
 	    ":id": {
-		"#_base": "..",
-		"#_structure": "file:../../json/person.json"
+		"__base__": "..",
+		"__structure__": "file:../../json/person.json"
 	    },
 	    "create": {
-		"#_trigger": [
+		"__trigger__": [
 		    "/get/people/{$result.id}",
 		    "/get/people"
 		]
 	    }
 	},
 	"test_method": {
-	    "#_execute": [
+	    "__execute__": [
 		["hello_world"]
 	    ]
 	},
 	"parent_class_test": {
-	    "#_execute": [
+	    "__execute__": [
 		["ParentClass.heythere"]
 	    ]
 	},
 	"responses": {
 	    "static": {
-		"#_response": {
+		"__response__": {
 		    "message": "this is inline static data"
 		}
 	    },
 	    "file": {
-		"#_response": "../../static_result.json"
+		"__response__": "../../static_result.json"
 	    },
 	    "dynamic_file": {
-		"#_response": "< file"
+		"__response__": "< file"
 	    },
 	    "dynamic": {
-		"#_response": "< name"
+		"__response__": "< name"
 	    }
 	},
 	"test_validate": {
 	    ":id": {
-		"#_validate": [
+		"__validate__": [
 		    ["Validate.pass", "< path.id"]
 		],
-		"#_table": "people",
-		"#_where": "person_id = {path.id}",
-		"#_structure": {
+		"__table__": "people",
+		"__where__": "person_id = {path.id}",
+		"__structure__": {
 		    "id": "= {person_id}",
 		    "name": {
 			"first": "< first_name",
@@ -106,37 +106,37 @@
 		}
 	    },
 	    "fail_false": {
-		"#_validate": [
+		"__validate__": [
 		    ["fail_false", "hello", "world"]
 		]
 	    },
 	    "fail_message": {
-		"#_validate": [
+		"__validate__": [
 		    ["fail_message", "hello", "world"]
 		]
 	    },
 	    "fail_error": {
-		"#_validate": [
+		"__validate__": [
 		    ["fail_error", "hello", "world"]
 		]
 	    },
 	    "class_method": {
-		"#_validate": [
+		"__validate__": [
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
 	    },
 	    "multi_level": {
-		"#_validate": [
+		"__validate__": [
 		    "= Failed at level 1"
 		],
 		"level_two": {
-		    "#_validate": [
+		    "__validate__": [
 			"= Failed at level 2"
 		    ]
 		}
 	    },
 	    "string": {
-		"#_validate": [
+		"__validate__": [
 		    "= true",
 		    "= 'This is not a pass'",
 		    "= false"
@@ -144,12 +144,12 @@
 	    }
 	},
 	"testBase": {
-	    "#_base": "../secondBase",
-	    "#_where": "person_id = 1"
+	    "__base__": "../secondBase",
+	    "__where__": "person_id = 1"
 	},
 	"secondBase": {
-	    "#_base": "../baseTest",
-	    "#_structure": {
+	    "__base__": "../baseTest",
+	    "__structure__": {
 		"id": "= {person_id}",
 		"name": {
 		    "first": "< first_name",
@@ -161,11 +161,11 @@
 	    }
 	},
 	"baseTest": {
-	    "#_table": "people"
+	    "__table__": "people"
 	}
     },
     "upload": {
-	"#_execute": [
+	"__execute__": [
 	    ["uploadTest"]
 	]
     }

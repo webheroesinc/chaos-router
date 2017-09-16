@@ -166,3 +166,36 @@ var struct = {
 }
 var data	= restruct(result, struct);
 console.log(json(data,true))
+
+var result = [{
+    order: "1",
+    title: "Introduction",
+    text: "Welcome to the intro!",
+}, {
+    order: "1.1",
+    title: "sub section",
+    text: "...text",
+}, {
+    order: "1.1.1",
+    title: "sub sub section",
+    text: "......text",
+}, {
+    order: "2",
+    title: "section",
+    text: "text",
+}, {
+    order: "2.1",
+    title: "sub section",
+    text: "...text",
+}];
+
+var data	= restruct(result, {
+    "children": {
+	"= this.order.split('.')": {
+	    "title": true,
+	    "text": true
+	},
+	"titles": [ "< title" ]
+    }
+});
+console.log(json(data,true))

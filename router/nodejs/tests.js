@@ -146,7 +146,7 @@ function test_endpoint( endpoint, data, cb ) {
 		var status	= test === true ? "PASSED": "FAILED"
 		if(test !== true) {
 		    log.warn(status, endpoint);
-		    log.error(result);
+		    log.error("Result from endpoint", endpoint, "with data", Object.keys(data), "-", result);
 		    failures++;
 		    r(test);
 		}
@@ -156,7 +156,19 @@ function test_endpoint( endpoint, data, cb ) {
 		    f(test);
 		}
 	    }, function(err) {
-		log.error(err);
+		var test	= cb(err);
+		var status	= test === true ? "PASSED": "FAILED"
+		if(test !== true) {
+		    log.warn(status, endpoint);
+		    log.error("Endpoint raised error:", err);
+		    failures++;
+		    r(test);
+		}
+		else {
+		    log.info(status, endpoint);
+		    passes++;
+		    f(test);
+		}
 	    })
 	e.catch(function(err) {
 	    log.warn("Caught error");
@@ -289,7 +301,8 @@ knex.transaction(function(trx) {
     });
 }).then(function() {
     log.info("Passes", passes);
-    log.error("Failures", failures);
+    if (failures)
+	log.error("Failures", failures);
     log.info("Destroying knex context");
     knex.destroy();
 }, function(err) {

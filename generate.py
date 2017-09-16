@@ -38,7 +38,7 @@ class Generator(object):
             peoples.append( (
                 faker.first_name(),
                 faker.last_name(),
-                faker.phonenumber(),
+                faker.phone_number(),
                 random.choice( ('lame', 'fun', 'obscure', 'nerd', 'cocky') ),
             ) )
         self.multi_insert( 'people', columns, peoples, count )

@@ -202,8 +202,9 @@ ChaosRouter.prototype.route	= function(path, data, parents) {
 	    }
 	    
 	    // Add this level's validates to validations list
-	    if(data[validateKey])
-		validates.splice.apply(validates, [validates.length-1, 0].concat(data[validateKey]));
+	    if(data[validateKey]) {
+		validates.splice.apply(validates, [validates.length, 0].concat(data[validateKey]));
+	    }
 	}
 	
 	last_seg	= seg;
@@ -498,8 +499,14 @@ Endpoint.prototype.execute		= function(args) {
 	    }
 	    
 	    var validations	= self.directives['validate'];
-	    if (validations.length)
-		self.runAll(validations, next, r);
+	    if (validations.length) {
+		self.runAll(validations, next, function (err) {
+		    if (err.message.split("End of method chain").length > 1)
+			next();
+		    else
+			r(err);
+		});
+	    }
 	    else
 		next();
 	}, f).catch(r);
