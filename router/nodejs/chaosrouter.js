@@ -81,18 +81,37 @@ function replaceFileRefs( struct, parents, resp ) {
     }
     return is_flat ? struct[0] : struct;
 }
+function Module(name, router) {
+    if (! (this instanceof Module))
+	return new Module(name, router);
+    
+    this.module		= __modules__[name];
+    this.router		= router;
+}
+Module.prototype.enable	= function() {
+    if (arguments.length === 0) {
+	for (var k in this.module)
+	    this.router.directive(k, this.module[k]);
+    }
+    else {
+	// enable each directive given
+	for (var i in arguments) {
+	    var name	= arguments[i];
+	    this.router.directive(name, this.module[name]);
+	}
+    }
+};
 
 function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
 	return new ChaosRouter(data, opts);
+
+    if (!opts)
+	opts		= {};
     
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
-    this.defaultExec	= opts.defaultExec;
     this.baseArgs	= {}
-
-    if (opts.defaultExec === undefined)
-	throw new Error("defaultExec is required");
 
     if (is_dict(data))
 	this.config	= data;
@@ -101,6 +120,9 @@ function ChaosRouter(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
+ChaosRouter.prototype.module	= function(name) {
+    return Module(name, this);
+};
 ChaosRouter.directivePrefix		= '__';
 ChaosRouter.directiveSuffix		= '__';
 ChaosRouter.prototype.__directives__	= {};
@@ -254,8 +276,6 @@ function Endpoint(path, config, directives, path_vars, router) {
     
     if (this.directives['execute'] === undefined)
 	this.directives['execute']	= [];
-    
-    this.directives['execute'].push([router.defaultExec]);
 }
 Endpoint.prototype.directive		= function (name, fn) {
     if (fn === undefined)
@@ -513,6 +533,19 @@ Endpoint.prototype.execute		= function(args) {
     });
 }
 
+__modules__		= {};
+
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
+ChaosRouter.module	= function(module) {
+    var module			= require(module);
+    __modules__[module.name]	= module.directives;
+}
+ChaosRouter.modules	= function() {
+    var modules = [];
+    for (var i in arguments) {
+	modules.push( ChaosRouter.module(arguments[i]) );
+    }
+    return modules;
+}
 module.exports		= ChaosRouter;

@@ -6,7 +6,7 @@
 		"message": "< data.message"
 	    },
 	    "__trigger__": [
-		"/chat/{path.room}"
+		"/chat/{{path.room}}"
 	    ]
 	}
     },
@@ -17,6 +17,7 @@
 	    ]
 	},
 	"file": {
+	    "__sql__": true,
 	    "__table__": "people",
 	    "__structure__": {
 		"< person_id": "file:../../json/person.json",
@@ -46,6 +47,7 @@
 	    }
 	},
 	"people": {
+	    "__sql__": true,
 	    "__table__": "people",
             "__structure__": {
 		"< person_id": "file:../../json/person.json"
@@ -56,7 +58,7 @@
 	    },
 	    "create": {
 		"__trigger__": [
-		    "/get/people/{$result.id}",
+		    "/get/people/{{$result.id}}",
 		    "/get/people"
 		]
 	    }
@@ -92,14 +94,15 @@
 		"__validate__": [
 		    ["Validate.pass", "< path.id"]
 		],
+		"__sql__": true,
 		"__table__": "people",
-		"__where__": "person_id = {path.id}",
+		"__where__": "person_id = {{path.id}}",
 		"__structure__": {
-		    "id": "= {person_id}",
+		    "id": "= {{person_id}}",
 		    "name": {
 			"first": "< first_name",
 			"last": "< last_name",
-			"full": "{first_name} {last_name}"
+			"full": "{{first_name}} {{last_name}}"
 		    },
 		    "phone": "< phone_number",
 		    "personality": "< personality"
@@ -150,17 +153,18 @@
 	"secondBase": {
 	    "__base__": "../baseTest",
 	    "__structure__": {
-		"id": "= {person_id}",
+		"id": "= {{person_id}}",
 		"name": {
 		    "first": "< first_name",
 		    "last": "< last_name",
-		    "full": "{first_name} {last_name}"
+		    "full": "{{first_name}} {{last_name}}"
 		},
 		"phone": "< phone_number",
 		"personality": "< personality"
 	    }
 	},
 	"baseTest": {
+	    "__sql__": true,
 	    "__table__": "people"
 	}
     },

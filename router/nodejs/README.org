@@ -1,0 +1,124 @@
+
+
+* ChaosRouter Documentation
+
+** Install
+
+   #+BEGIN_SRC bash
+   npm install chaosrouter --save
+   #+END_SRC
+   
+
+** Initializing
+   By initializing with a file path instead of an object, ChaosRouter can reload the config file
+   file whenever there is a change.  Using an object would require restarting the server everytime
+   it changed.
+   
+   #+BEGIN_SRC javascript
+   var chaosrouter	= require('chaosrouter');
+
+   var router		= chaosrouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+
+   // Load JSON from a file
+   var router		= chaosrouter('./routes.json');
+   #+END_SRC
+
+
+** Loading Modules
+
+   #+BEGIN_SRC javascript
+   var chaosrouter = require('chaosrouter');
+
+   // Load several modules
+   chaosrouter.modules('module1', 'module2', ...);
+
+   // Load one at a time
+   chaosrouter.module('module1');
+   chaosrouter.module('module2');
+   chaosrouter.module(...);
+   #+END_SRC
+
+
+** Enable Directives
+   Directives are not enabled automatically, for good reason.  Let's say you have 2 modules you like
+   but they both have a directive with the same name.  If they loaded automatically, one would
+   overwrite the other.  In order to prevent this overwrite, you would have to know every directive
+   that every module is loading.  You would have to manually disable the one in the module you don't
+   want, and enable the one in the module you do want.  To be safe all the time, directives have to
+   be enabled on a per module basis.
+
+   #+BEGIN_SRC javascript
+   // Enable all directives
+   router.module('module1').enable();
+
+   // Enable specific directives
+   router.module('module1').enable('directive1', 'directive2', ...);
+
+   // Enable all excluding specific directives
+   router.module('module1').exclude('directive3', 'directive4', ...);
+   #+END_SRC
+   
+
+** Usage
+
+   #+BEGIN_SRC javascript
+   var chaosrouter	= require('chaosrouter');
+
+   var router = chaosrouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+   router.directive('response', function(text, _, resolve) {
+       resolve(text);
+   });
+
+   var frame		= router.route('/api/helloworld');
+
+   frame().then(function(data) {
+       console.log(data); // == "Hello World!"
+   });
+   #+END_SRC
+
+** Creating a Directive
+   Directives are power behind ChaosRouter!  There is virtually no limit to what you can make a
+   directive do.  Within a directive, there is access to all router resources and configurations.
+   With that access you can program directives to do just about anything, even dynamically configure
+   other directives.
+
+   #+BEGIN_SRC javascript
+   var chaosrouter	= require('chaosrouter');
+   var router		= chaosrouter(<config>);
+
+   router.directive(<key / name>, function(config, next, resolve) {
+       // 'this' is the Frame object
+       // 'config' is the value from this directive in the current Frame
+       // ... do things based on config
+       // call next() to move onto the next directive
+       // call resolve(...) to end here with result [...]
+   });
+   #+END_SRC
+
+   
+** Creating a Module
+   A module is simply a dictionary of directive names and functions.
+
+   #+BEGIN_SRC javascript
+   module.exports = {
+       <directive name>: function(<config>, <next function>, <resolve function>) {
+           ...
+       },
+       <directive name>: function(<config>, <next function>, <resolve function>) {
+           ...
+       },
+       ...
+   }
+   #+END_SRC

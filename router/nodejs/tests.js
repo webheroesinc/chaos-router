@@ -19,80 +19,13 @@ var log		= bunyan.createLogger({
     level: 'debug'
 });
 
-var router	= chaosrouter('../../routes.json', {
-    defaultExec: function (args, resp) {
-	var knex	= this.args.db;
-	var q		= knex.select();
+chaosrouter.modules( '../../router/libs/chaosrouter-base/nodejs/index.js',
+		     '../../router/libs/chaosrouter-sql/nodejs/index.js' );
+var router		= chaosrouter('../../routes.json');
 
-	var table	= this.directives['table'];
-	var where	= this.directives['where'];
-	var joins	= this.directives['joins'] || [];
-	var columns	= this.directives['columns'] || [];
-	var struct	= this.directives['structure'];
+router.module('chaosrouter-base').enable();
+router.module('chaosrouter-sql').enable();
 
-	q.from(table);
-	
-	for (var i in columns) {
-    	    if (Array.isArray(columns[i]))
-    		columns[i]	= columns[i].join(' as ');
-    	    q.column(columns[i]);
-	}
-	for (var i=0; i<joins.length; i++) {
-    	    var join	= joins[i];
-    	    var t	= join[0];
-    	    var c1	= join[1].join('.');
-    	    var c2	= join[2].join('.');
-    	    q.leftJoin(knex.raw(t), c1, c2);
-	}
-	
-	if (where)
-    	    q.where( knex.raw(fill(where, this.args)) );
-
-	// log.debug("Query: \n"+q.toString());
-
-	q.then(function(result) {
-	    var result	= struct === undefined
-	    	? result
-	    	: restruct(result, struct);
-            resp(result);
-	}, resp).catch(resp);
-    }
-});
-router.directive('response', function (response, next, resp) {
-    if ( typeof response === "string" ) {
-	response		= fill(response, this.args);
-	if ( typeof response === "string" ) {
-	    if(! fs.existsSync(response) ) {
-		return resp({
-		    error: "Invalid File",
-		    message: "The response file was not found"
-		});
-	    }
-	    response		= fs.readFileSync( response, 'utf8' );
-	    try {
-		response	= JSON.parse(response)
-	    } catch(err) {
-		return resp({
-		    error: "Invalid File",
-		    message: "The response file was not valid JSON"
-		});
-	    }
-	}
-	else {
-	    return resp(response);
-	}
-    }
-    resp(restruct(this.args, response));
-});
-router.directive('structure_update', function (update, next, resp) {
-    if (this.directives['structure'] === undefined)
-	return resp({
-	    error: "Structure Update Failed",
-	    message: "Cannot update undefined; no structure is defined at "+this.route
-	});
-    extend( this.directive['structure'], update );
-    next();
-});
 router.executables({
     "fail_false": function(args, _, validate) {
 	validate(false);
