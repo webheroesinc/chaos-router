@@ -69,7 +69,10 @@ var passes		= 0;
 function test_endpoint( endpoint, data, cb ) {
     if (!data)
 	data		= {};
-    extend(data, { "db": test_endpoint.db });
+
+    router.set_arguments({
+	"db": test_endpoint.db,
+    });
     
     tests.push(new Promise(function(f,r) {
 	var ep		= router.route(endpoint);
@@ -110,6 +113,7 @@ function test_endpoint( endpoint, data, cb ) {
     }));
 }
 knex.transaction(function(trx) {
+    
     test_endpoint.db	= trx;
     test_endpoint('/get/people', null, function(result) {
     	if (Object.keys(result).length < 80) {
@@ -210,13 +214,13 @@ knex.transaction(function(trx) {
     });
 
     test_endpoint('/get/empty_method', null, function (result) {
-    	if (result.message !== "Executable is missing the method name")
+    	if (result.message !== "Array is empty")
     	    return ["Unexpected result", result];
     	return true;
     });
 
     test_endpoint('/get/test_validate/multi_level/level_two', null, function (result) {
-    	if (result.message !== "Failed at rule = Failed at level 1")
+    	if (result.message !== "Did not pass validation config '= Failed at level 1'")
     	    return ["Unexpected result", result];
     	return true;
     });

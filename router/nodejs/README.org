@@ -30,7 +30,7 @@
    #+END_SRC
 
 
-** Loading Modules
+** <<Loading Modules>> Loading Modules
 
    #+BEGIN_SRC javascript
    var chaosrouter = require('chaosrouter');
@@ -64,8 +64,19 @@
    router.module('module1').exclude('directive3', 'directive4', ...);
    #+END_SRC
    
-
 ** Usage
+   Here is a simple example of using ChaosRouter to return simple, static text for an endpoint.  We
+   will break down what is happening:
+
+   1. Loading 'chaosrouter'
+   2. Initializing chaosrouter with the map of endpoints
+   3. Defining the ~__response__~ directive
+   4. Route a path and get the endpoint Draft object
+   5. Run the Draft and log the returned result
+
+   Instead of defining your own directives, you can load the 'chaosrouter-base' module and use our
+   standard directive implementations.  See [[Loading Modules][Loading Modules]] section and the [[#][ChaosRouter Libs]]
+   Documentation.
 
    #+BEGIN_SRC javascript
    var chaosrouter	= require('chaosrouter');
@@ -77,13 +88,22 @@
            }
        }
    });
+
    router.directive('response', function(text, _, resolve) {
        resolve(text);
    });
 
-   var frame		= router.route('/api/helloworld');
+   var draft		= router.route('/api/helloworld');
 
-   frame().then(function(data) {
+   draft.run().then(...
+   draft.execute().then(...
+   draft.make().then(...
+   draft.create().then(...
+   draft.go().then(...
+   draft.complete().then(...
+   draft.finish().then(...
+   draft.then(...
+   draft.proceed().then(function(data) {
        console.log(data); // == "Hello World!"
    });
    #+END_SRC
@@ -99,8 +119,8 @@
    var router		= chaosrouter(<config>);
 
    router.directive(<key / name>, function(config, next, resolve) {
-       // 'this' is the Frame object
-       // 'config' is the value from this directive in the current Frame
+       // 'this' is the Draft object
+       // 'config' is the value from this directive in the current Draft
        // ... do things based on config
        // call next() to move onto the next directive
        // call resolve(...) to end here with result [...]
@@ -109,16 +129,23 @@
 
    
 ** Creating a Module
-   A module is simply a dictionary of directive names and functions.
+   A module is simply an object with the name of the module, and a dictionary of directive names and
+   functions.  The module name is the unique name that will be used to reference the module after it
+   is loaded.
 
    #+BEGIN_SRC javascript
    module.exports = {
-       <directive name>: function(<config>, <next function>, <resolve function>) {
+       "name": <module IDd>,
+       "directives": {
+           <directive name>: function(<config>, <next function>, <resolve function>) {
+               ...
+           },
+           <directive name>: function(<config>, <next function>, <resolve function>) {
+               ...
+           },
            ...
-       },
-       <directive name>: function(<config>, <next function>, <resolve function>) {
-           ...
-       },
-       ...
+       }
    }
    #+END_SRC
+
+   

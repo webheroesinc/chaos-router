@@ -12,7 +12,7 @@
     },
     "get": {
 	"empty_method": {
-	    "__execute__": [
+	    "__tasks__": [
 		[]
 	    ]
 	},
@@ -64,12 +64,12 @@
 	    }
 	},
 	"test_method": {
-	    "__execute__": [
+	    "__tasks__": [
 		["hello_world"]
 	    ]
 	},
 	"parent_class_test": {
-	    "__execute__": [
+	    "__tasks__": [
 		["ParentClass.heythere"]
 	    ]
 	},
@@ -169,7 +169,7 @@
 	}
     },
     "upload": {
-	"__execute__": [
+	"__tasks__": [
 	    ["uploadTest"]
 	]
     }

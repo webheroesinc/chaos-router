@@ -5,7 +5,7 @@ var log			= bunyan.createLogger({
     level: module.parent ? 'error' : 'trace'
 });
 
-var fill		= require('populater');
+var populater		= require('populater');
 var restruct		= require('restruct-data');
 
 module.exports = {
@@ -15,11 +15,11 @@ module.exports = {
 	    var knex		= this.args.db;
 	    var q		= knex.select();
 
-	    var table	= this.directives['table'];
-	    var where	= this.directives['where'];
-	    var joins	= this.directives['joins'] || [];
-	    var columns	= this.directives['columns'] || [];
-	    var struct	= this.directives['structure'];
+	    var table		= this.directives['table'];
+	    var where		= this.directives['where'];
+	    var joins		= this.directives['joins'] || [];
+	    var columns		= this.directives['columns'] || [];
+	    var struct		= this.directives['structure'];
 
 	    q.from(table);
 	    
@@ -30,14 +30,14 @@ module.exports = {
 	    }
 	    for (var i=0; i<joins.length; i++) {
     		var join	= joins[i];
-    		var t	= join[0];
-    		var c1	= join[1].join('.');
-    		var c2	= join[2].join('.');
+    		var t		= join[0];
+    		var c1		= join[1].join('.');
+    		var c2		= join[2].join('.');
     		q.leftJoin(knex.raw(t), c1, c2);
 	    }
 	    
 	    if (where) {
-    		q.where( knex.raw(fill(where, this.args)) );
+    		q.where( knex.raw(populater(this.args)(where)) );
 	    }
 
 	    // log.trace("Query: \n"+q.toString());

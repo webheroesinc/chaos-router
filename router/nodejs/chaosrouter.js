@@ -1,16 +1,17 @@
-
-var extend	= require('util')._extend;
-var Promise	= require('promise');
-var restruct	= require('restruct-data');
-var fill	= restruct.populater;
-var fs		= require('fs');
-var util	= require('util');
 var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
     name: "ChaosRouter",
     level: module.parent ? 'error' : 'trace'
 });
+
+var extend	= require('util')._extend;
+var Promise	= require('promise');
+var restruct	= require('restruct-data');
+var populater	= restruct.populater;
+var fs		= require('fs');
+var util	= require('util');
+
 function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
 }
@@ -273,9 +274,6 @@ function Endpoint(path, config, directives, path_vars, router) {
 	"path": path_vars
     });
     this.directives	= directives;
-    
-    if (this.directives['execute'] === undefined)
-	this.directives['execute']	= [];
 }
 Endpoint.prototype.directive		= function (name, fn) {
     if (fn === undefined)
@@ -295,7 +293,7 @@ Endpoint.prototype.recursiveFill= function(args, data) {
 	var arg		= args[i];
 	if (typeof arg === 'string') {
 	    try {
-		v	= fill(arg, data);
+		v	= populater(data)(arg);
 	    } catch (e) {}
 	}
 	else if (typeof arg === 'object' && arg !== null) {
@@ -346,165 +344,50 @@ Endpoint.prototype.respondWith		= function(path, cb) {
 	    cb(d);
 	})
 }
-function validationErrorResponse(check, command) {
-    if (typeof check === 'object' && check !== null)
-	return check;
-    else {
-	var message	= "Failed at rule "+command;
-	return {
-	    "error": "Failed Validation",
-	    "message": typeof check === 'string' ? check : message,
-	};
-    }
+
+function run_sequence(list, fn, index) {
+    if (index === undefined)
+	index		= 0;
+    
+    if (list[index] === undefined)
+	throw Error("End of method chain with no response");
+    if (typeof list[index] !== 'function')
+	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
+
+    fn(list[index], function() {
+	run_sequence(list, fn, index+1);
+    });
 }
-Endpoint.prototype.runMethod		= function(executes, i, resp, err) {
-    // Assuming we have a list of executes, we want to run them one at a time and only run the next
-    // one if the previous is fulfilled.
-    var self		= this;
-    var exec		= executes[i];
 
-    if (exec === undefined)
-	return err(validationErrorResponse("End of method chain with no response: exec === undefined"));
-    
-    var next		= function () {
-	self.runMethod(executes, i+1, resp, err);
-    };
-    var args		= [];
-    if (typeof exec === 'string') {
-	// If [exec] is a string, just do a *fill* on [exec]
-	var check	= fill(exec, this);
-	if (check !== true) {
-	    err(validationErrorResponse(check, exec));
-	}
-	// If it is the last exececutable, respond;
-	// else continue through the list.
-	if(executes.length === i+1)
-	    resp();
-	else
-	    next();
-	return;
-    }
-    else if (Array.isArray(exec)) {
-	// If [exec] is an array, use the first item as the function
-	// name, and following items as arguments.
-	if (exec.length === 0)
-	    return resp({
-		"error": "Routing Syntax Error",
-		"message": "Executable is missing the method name"
-	    });
-	    
-	args		= exec;
-	exec		= exec.shift();
-    }
-    else {
-	// If [exec] is not a string or an array, respond with an error.
-	return resp({
-	    "error": "Routing Syntax Error",
-	    "message": "Execute syntax must be an array with at least one value, NOT: "+ typeof exec
-	});
-    }
-    
-    if (typeof exec === 'function') 
-	// If the original [exec] was an array, and the n
-	cmd		= exec;
-    else {
-	try {
-	    cmd		= eval("self.__methods__."+exec);
-	} catch (err) {
-	    return err({
-		"error": err.name,
-		"message": err.message
-	    });
-	}
-	if (typeof cmd !== 'function')
-	    throw Error("'"+exec+"' is not a function.  Found type '"+(typeof cmd)+"'");
-    }
-
-    args		= this.recursiveFill(args, this.args);
-
-    try {
-	cmd.call(this, args, resp,  function (check) {
-	    if (check === true)
-		next();
-	    else {
-		err(validationErrorResponse(check, exec));
-	    }
-	});
-    } catch (err) {
-	log.error(err);
-	resp({
-	    error: err.name,
-	    message: err.message
-	});
-    }
-}
-Endpoint.prototype.runAll		= function(executables, cb, err) {
-    if (executables === undefined)
-	return cb();
-    
-    var self		= this;
-    if (typeof executables === 'string') {
-	self.runMethod([executables], 0, cb, err);
-    }
-    else if (Array.isArray(executables)) {
-	self.runMethod(executables, 0, cb, err);
-    }
-    else {
-	cb({
-	    "error": "Routing Syntax Error",
-	    "message": "Execute is missing the method name"
-	});
-    }
-}
-Endpoint.prototype.runDirectives	= function(i, next, resp) {
-    if (i === undefined)
-	i		= 0;
-
-    var directives		= Object.keys(this.router.__directives__);
-    var key			= directives[i];
-
-    if (key === undefined) {
-	if (next === undefined)
-	    return Promise.resolve();
-	return next();
-    }
-    
-    var directive		= this.router.__directives__[key];
+Endpoint.prototype.runDirectives	= function() {
     var self			= this;
-    function cont(f,r) {
+    var directivesMap		= this.router.__directives__;
+
+    var directives		= Object.keys(directivesMap).map(function(k) {
+	var directive		= directivesMap[k];
+	directive.config	= self.directives[k];
+	return directive;
+    });
+
+    return new Promise(function(f,r) {
 	try {
-    	    if (self.directives[key] === undefined) {
-		self.runDirectives(i+1, f,r)
-	    }
-	    else {
-    		directive.call(self, self.directives[key], function() {
-		    self.runDirectives(i+1, f,r)
-		}, r);
-    	    }
-	} catch (err) {
-	    log.error(err);
-	    r({
-		error: err.name,
-		message: err.message
+	    run_sequence(directives, function(directive, next) {
+		if (directive.config === undefined) {
+		    next();
+		}
+		else {
+		    directive.call(self, directive.config, next, function(data) {
+			if (data instanceof Error)
+			    r(data);
+			else
+			    f(data);
+		    });
+		}
 	    });
 	}
-    }
-    
-    if (next === undefined) {
-	return new Promise(function (f,r) {
-	    cont(f,r)
-	});
-    }
-    else
-	cont(next, resp);
-}
-
-function promiseSequence(sequence) {
-    return sequence.shift().then(function(data) {
-	if (sequence.length)
-	    return promiseSequence(sequence);
-	else
-	    return data;
+	catch (err) {
+	    console.error("Caught Promise snuffing error", err);
+	}
     });
 }
 
@@ -513,27 +396,13 @@ Endpoint.prototype.execute		= function(args) {
 
     var self		= this;
     return new Promise(function(f,r) {
-	self.runDirectives().then(function() {
-	    function next() {
-		self.runAll(self.directives['execute'], f, r);
-	    }
-	    
-	    var validations	= self.directives['validate'];
-	    if (validations.length) {
-		self.runAll(validations, next, function (err) {
-		    if (err.message.split("End of method chain").length > 1)
-			next();
-		    else
-			r(err);
-		});
-	    }
-	    else
-		next();
+	self.runDirectives().then(function(result) {
+	    f(result);
 	}, f).catch(r);
     });
 }
 
-__modules__		= {};
+var __modules__		= {};
 
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;

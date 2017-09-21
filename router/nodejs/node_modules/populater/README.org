@@ -1,0 +1,64 @@
+
+* Usage
+   
+** Basic
+
+
+   #+BEGIN_SRC javascript
+   var populater	= require('populater');
+   var data		= {
+       text: "World"
+   };
+
+   var context		= populater(data);
+   context("Hello {{text}}!")	// === "Hello World!";
+
+   var template		= populater.template("Hello {{text}}!");
+   template.context(data)	// === "Hello World!";
+
+   #+END_SRC
+
+
+** Define a method
+
+
+   #+BEGIN_SRC javascript
+   var populater	= require('populater');
+
+   populater.method('keys', function() {
+       return Object.keys(this);
+   });
+
+   var data		= {
+       text: "World"
+   };
+   var context		= populater(data);
+   context("keys()")	// === ['text'];
+   #+END_SRC
+
+
+** Using an alternative context for methods
+
+
+   #+BEGIN_SRC javascript
+   var populater	= require('populater');
+
+   populater.method('keys', function() {
+       return Object.keys(this);
+   });
+
+   var data		= {
+       text: "World"
+   };
+   var altCTX		= {
+       'one': true,
+       'two': true,
+       'three': true,
+   };
+
+   var context		= populater(data, altCTX);
+   context("keys()")			// === ['one', 'two', 'three'];
+
+   var template		= populater.template("keys()");
+   template.context(data, altCTX)	// === ['one', 'two', 'three'];
+   #+END_SRC
