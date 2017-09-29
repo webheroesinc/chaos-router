@@ -2,7 +2,7 @@ var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
     name: "ChaosRouter",
-    level: module.parent ? 'error' : 'trace'
+    level: 'trace' // module.parent ? 'error' : 'trace'
 });
 
 var extend	= require('util')._extend;
@@ -82,26 +82,42 @@ function replaceFileRefs( struct, parents, resp ) {
     }
     return is_flat ? struct[0] : struct;
 }
-function Module(name, router) {
-    if (! (this instanceof Module))
-	return new Module(name, router);
-    
-    this.module		= __modules__[name];
-    this.router		= router;
-}
-Module.prototype.enable	= function() {
-    if (arguments.length === 0) {
-	for (var k in this.module)
-	    this.router.directive(k, this.module[k]);
-    }
-    else {
-	// enable each directive given
-	for (var i in arguments) {
-	    var name	= arguments[i];
-	    this.router.directive(name, this.module[name]);
+
+function getDirectives(data) {
+    var directives	= {};
+    for (var k in data) {
+	var noprefix	= k.slice(ChaosRouter.directivePrefix.length);
+	if ( k.indexOf(ChaosRouter.directivePrefix) === 0
+	     && noprefix.indexOf(ChaosRouter.directiveSuffix) === (noprefix.length - ChaosRouter.directiveSuffix.length)) {
+	    var name		= k.slice(ChaosRouter.directivePrefix.length, -ChaosRouter.directiveSuffix.length);
+	    directives[name]	= data[k];
+	    delete data[k];
 	}
     }
-};
+    return directives;
+}
+
+function getVariableKey(config) {
+    var vkey		= null;
+    Object.keys(config).forEach(function(key) {
+	if (key.trim().indexOf(':') === 0) {
+	    if (vkey === null)
+		vkey	= key;
+	    else
+		log.warn("Multiple variable keys found in config", config);
+	}
+    });
+    return vkey;
+}
+function loadConfigFile(filepath) {
+    var config	= JSON.parse( fs.readFileSync(filepath) );
+    config 	= replaceFileRefs( config, null, function(err) {
+	throw Error(err.error+': '+err.message);
+    });
+    return config;
+}
+
+
 
 function ChaosRouter(data, opts) {
     if (! (this instanceof ChaosRouter))
@@ -113,7 +129,7 @@ function ChaosRouter(data, opts) {
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
     this.baseArgs	= {}
-
+    
     if (is_dict(data))
 	this.config	= data;
     else if (typeof data === 'string')
@@ -121,8 +137,128 @@ function ChaosRouter(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
-ChaosRouter.prototype.module	= function(name) {
-    return Module(name, this);
+ChaosRouter.prototype.root	= function() {
+    if (this.configfile)
+	this.config		= loadConfigFile( this.configfile );
+    return Endpoint("/", {}, this.config, [], this);
+};
+ChaosRouter.prototype.modules	= function() {
+    var self		= this;
+    
+    for (var i in arguments) {
+	var arg		= arguments[i];
+	if (typeof arg === 'string') {
+	    log.trace("Load modules string", arg);
+	    self.module(arg, ChaosRouter.ENABLE_ALL);
+	}
+	else if (typeof arg === 'object') {
+	    var config		= arg;
+	    
+	    log.trace("Load modules object", config);
+	    for (var name in config) {
+		var directives	= config[name];
+		var cmd		= name.split(' ')[1];
+		
+		if (cmd) {
+		    name	= name.split(' ')[0];
+		    switch (cmd) {
+		    case '^':
+			self.module(name, {
+			    "exclude": directives
+			});
+			break;
+		    case '!':
+			self.module(name, {
+			    "disable": directives
+			});
+			break;
+		    default:
+			log.error("Unknown command '"+cmd+"' in module loading");
+			break;
+		    }
+		}
+		else if (directives === true) {
+		    self.module(name, ChaosRouter.ENABLE_ALL);
+		}
+		else if ( Array.isArray(directives) ) {
+		    self.module(name, {
+			"enable": directives
+		    });
+		}
+		else {
+		    log.error("Unexpected type for directive list '"+(typeof directives)+"'");
+		}
+	    }
+	}
+	else {
+	    log.error("Failed to load module because of unexpected argument type", typeof arg);
+	}
+    }
+}
+ChaosRouter.ENABLE_ALL		= 0;
+ChaosRouter.ENABLE_SELECTION	= 1;
+ChaosRouter.ENABLE_EXCULSION	= 2;
+ChaosRouter.DISABLE_SELECTION	= 3;
+ChaosRouter.prototype.module	= function(name, config) {
+    if (typeof config === 'number') {
+	log.trace("Converting config number", config, "to config object");
+	var list		= arguments[2];
+	switch(config) {
+	case ChaosRouter.ENABLE_ALL:
+	    return this.module(name, {"enable": true});
+	    break;
+	case ChaosRouter.ENABLE_SELECTION:
+	    return this.module(name, {"enable": list});
+	    break;
+	case ChaosRouter.ENABLE_EXCLUSION:
+	    return this.module(name, {"exclude": list});
+	    break;
+	case ChaosRouter.DISABLE_SELECTION:
+	    return this.module(name, {"disable": list});
+	    break;
+	default:
+	    return log.error("Unknown config number in Module load '"+config+"'.  Supported values are ENABLE_ALL, ENABLE_SELECTION, ENABLE_EXCLUSION, DISABLE_SELECTION");
+	    break;
+	}
+    }
+    
+    var self		= this;
+    var module		= __modules__[name];
+    var directives	= module.__directives__;
+    
+    if (typeof config === 'object') {
+	log.debug("Load module", name, "with config", config);
+	if (config.enable === true) {
+	    // Enable all
+	    for (var name in directives) {
+		self.directive(name, directives[name]);
+	    }
+	}
+	else if ( Array.isArray(config.enable) ) {
+	    config.enable.forEach(function(name) {
+		self.directive(name, directives[name]);
+	    });
+	}
+	else if ( Array.isArray(config.exclude) ) {
+	    for (var name in directives) {
+		if (config.exclude.indexOf(name) === -1)
+		    self.directive(name, directives[name]);
+	    }
+	}
+	else if ( Array.isArray(config.disable) ) {
+	    config.disable.forEach(function(name) {
+		self.directive(name, directives[name], false);
+	    });
+	}
+	else {
+	    log.error("Configuration does not contain any valid commands (eg. enable, exclude, disable)", config);
+	}
+    }
+    else if ([undefined,null].indexOf(config) === -1) {
+	log.error("Unexpected configuration type in module load '"+(typeof config)+"'");
+    }
+
+    return module;
 };
 ChaosRouter.directivePrefix		= '__';
 ChaosRouter.directiveSuffix		= '__';
@@ -133,124 +269,8 @@ ChaosRouter.prototype.directive		= function (name, fn) {
 
     this.__directives__[name]		= fn;
 }
-ChaosRouter.prototype.__methods__	= {};
-ChaosRouter.prototype.executables	= function (dict) {
-    for(var k in dict)
-	this.__methods__[k]	= dict[k];
-}
-ChaosRouter.prototype.route	= function(path, data, parents) {
-    var originalPath	= path;
-    data		= setdefault(data, null);
-    parents		= setdefault(parents, null);
-
-    if (this.configfile !== null) {
-	var config	= JSON.parse( fs.readFileSync(this.configfile) );
-	this.config	= replaceFileRefs( config, null, function(err) {
-	    throw Error(err.error+': '+err.message);
-	});
-    }
-
-    var variables	= {};
-    if (data === null || path.indexOf('/') === 0) {
-	data		= this.config;
-	parents		= [['', data]];
-	if (path.indexOf(this.basepath) === 0)
-	    path	= path.slice(this.basepath.length);
-    }
-
-    function getDirectives(data) {
-	var directives	= {};
-	for (var k in data) {
-	    var noprefix	= k.slice(ChaosRouter.directivePrefix.length);
-	    if ( k.indexOf(ChaosRouter.directivePrefix) === 0
-		 && noprefix.indexOf(ChaosRouter.directiveSuffix) === (noprefix.length - ChaosRouter.directiveSuffix.length)) {
-		var name		= k.slice(ChaosRouter.directivePrefix.length, -ChaosRouter.directiveSuffix.length);
-		directives[name]	= data[k];
-		delete data[k];
-	    }
-	}
-	return directives;
-    }
-
-    // Remove leading and trailing slashes.
-    var _p		= path.replace(/^\//, "").replace(/\/*$/, "")
-    var segs		= _p.split('/');
-    if (!path || path === '') {
-	var directives	= getDirectives(this.config);
-    	return Endpoint(originalPath, this.config, directives, variables, this);
-    }
-
-    var jsonkeys	= [];
-    var last_seg;
-
-    var validateKey	= ChaosRouter.directivePrefix+'validate'+ChaosRouter.directiveSuffix;
-    var validates	= data[validateKey] || [];
-    for (var i in segs) {
-	var seg		= segs[i];
-
-	if (seg === "..") {
-	    // We want to exit the current data and get the parent
-	    // space.  Get it from the parents list.
-	    var parent	= parents.pop();
-	    seg		= parent[0];
-	    data	= parent[1];
-	}
-	else {
-	    // We are diving deeper into data.  Add the current data
-	    // under the last_seg key in the parent list.
-	    if (last_seg !== undefined)
-		parents.push([last_seg, data]);
-
-	    // Then we figure out what the new current data is meant to be.	    
-	    if (data[seg] === undefined) {
-		var vkeys	= [];
-		var _keys	= Object.keys(data);
-		for( var k in _keys ){
-		    var v	=  _keys[k];
-		    if (v.trim().indexOf(':') === 0)
-			vkeys.push(v.trim());
-		}
-		var vkey	= vkeys.length > 0 ? vkeys.pop() : null;
-		data		= vkey === null ? null : data[vkey];
-		
-		if (data === null)
-		    return false;
-
-		variables[vkey.slice(1)]	= unescape(seg);
-		jsonkeys.push(vkey);
-	    }
-	    else {
-		data	= data[seg];
-		jsonkeys.push(seg);
-	    }
-	    
-	    // Add this level's validates to validations list
-	    if(data[validateKey]) {
-		validates.splice.apply(validates, [validates.length, 0].concat(data[validateKey]));
-	    }
-	}
-	
-	last_seg	= seg;
-    }
-    
-    var directives		= getDirectives(data);
-    directives['validate']	= validates;
-    
-    if (directives['base'] === undefined)
-	var config	= extend({}, data);
-    else {
-	var base	= this.route( directives['base'], data, parents );
-	delete base.directives['validate'];
-	delete directives['base'];
-
-	var merged	= {};
-	extend(merged, base.directives);
-	extend(merged, directives);
-	directives	= merged;
-    }
-
-    this.jsonpath	= jsonkeys.join('/');
-    return Endpoint(originalPath, config, directives, variables, this);
+ChaosRouter.prototype.route	= function(path) {
+    return this.root().route(path);
 }
 ChaosRouter.prototype.set_arguments	= function(args) {
     if (!is_iterable(args))
@@ -260,24 +280,154 @@ ChaosRouter.prototype.set_arguments	= function(args) {
 	this.baseArgs[name] = args[name];
 }
 
-function Endpoint(path, config, directives, path_vars, router) {
-    if (! (this instanceof Endpoint))
-	return new Endpoint(path, config, directives, path_vars, router);
 
-    this.jsonpath	= router.jsonpath;
-    this.path		= path;
-    this.path_vars	= path_vars;
-    this.router		= router;
-    this.config		= config;
-    this.__methods__	= router.__methods__;
-    this.args		= extend(extend({}, router.baseArgs), {
-	"path": path_vars
+function run_sequence(list, fn, index) {
+    if (index === undefined)
+	index		= 0;
+    
+    if (list[index] === undefined) {
+	var directives	= list.map(function(fn) {return fn.name;});
+	throw Error("End of method chain with no response (undefined index: "+index+", list length: "+list.length+", directives: "+directives.join(', ')+")");
+		   }
+    if (typeof list[index] !== 'function')
+	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
+
+    fn(list[index], function() {
+	run_sequence(list, fn, index+1);
     });
-    this.directives	= directives;
 }
-Endpoint.prototype.directive		= function (name, fn) {
-    if (fn === undefined)
-	return this.directives[name];
+
+
+function Endpoint(path, params, config, parents, router) {
+    if (! (this instanceof Endpoint))
+	return new Endpoint(path, params, config, parents, router);
+
+    this.path		= path;
+    this.params		= params;
+    this.raw		= config;
+    this.router		= router;
+    this.args		= extend(extend({}, router.baseArgs), {
+	"path": params
+    });
+
+    var directives		= getDirectives(config);
+
+    if (directives['base'] === undefined)
+	var config	= extend({}, config);
+    else {
+	var base	= this.route( directives['base'], config, parents );
+	log.trace("Basing off of", directives['base'], Object.keys(base.directives()) );
+	delete directives['base'];
+
+	var merged	= {};
+	extend(merged, base.__directives__);
+	extend(merged, directives);
+	directives	= merged;
+    }
+    
+    this.__parents__	= parents;
+    this.__directives__	= directives;
+}
+Endpoint.prototype.route	= function(path, data, parents) {
+    var originalPath	= path;
+    data		= setdefault(data, null);
+    parents		= setdefault(parents, null);
+
+    // If a 'this.configfile' has been specified. Load config from 'this.configfile' path and
+    // replace all references.  This happens everytime 'this.route' is called, which isn't ideal.
+    // There should be a setting to load it everytime for development, but the default should be
+    // once at initialization.
+    if (this.router.configfile !== null)
+	this.config	= loadConfigFile( this.router.configfile );
+
+    // Initialize the path variable collection
+    var variables	= {};
+    
+    // If a relative path was not provided, then assume we are starting at the 'root' of the route
+    // configuration.  If a relative path was provided, but no data or parents were given, there
+    // should be an error.
+    if (data === null || path.indexOf('/') === 0) {
+	data		= this.config;
+	parents		= [['', data]];
+	if (path.indexOf(this.router.basepath) === 0)
+	    path	= path.slice(this.router.basepath.length);
+    }
+
+    // Remove leading and trailing slashes, then create the path segments list.
+    var _p		= path.replace(/^\//, "").replace(/\/*$/, "");
+    var segs		= _p.split('/');
+
+    // Path leads to the 'root' of route configuration, so return now.
+    if (!path || path === '') {
+	var directives	= getDirectives(this.config);
+    	return Endpoint(originalPath, variables, this.config, parents, this.router);
+    }
+
+    var jsonkeys	= [];	// Used for tracking the raw path from the configuration.
+    var last_seg;		// Used for pushing onto parents list
+
+    for (var i in segs) {
+	var seg		= segs[i];
+
+	if (seg === "..") {
+	    // Reset state to parent node
+	    var parent	= parents.pop();
+	    seg		= parent[0];
+	    data	= parent[1];
+	}
+	else {
+	    // Since we are not going into the parent node, put the last segment and data onto the
+	    // parents list.
+	    if (last_seg !== undefined)
+		parents.push([last_seg, data]);
+
+	    // If the current 'segment' is not in the parent configuration, search for the wildcard
+	    // key.
+	    if (data[seg] === undefined) {
+		var key			= getVariableKey(data);
+		
+		if (key === null)
+		    return false;
+		
+		data			= data[key];
+		var vname		= key.slice(1);	// Remove ':' from key to get variable name
+
+		variables[vname]	= decodeURIComponent(seg);
+		jsonkeys.push(key);
+	    }
+	    // Replace parent configuration with the matching segment's configuration.
+	    else {
+		data	= data[seg];
+
+		jsonkeys.push(seg);
+	    }
+	}
+	
+	last_seg	= seg;
+    }
+
+    // router_path	= jsonkeys.join('/');
+    return Endpoint(originalPath, variables, data, parents, this.router);
+}
+Endpoint.prototype.parents		= function() {
+    var self		= this;
+
+    var path		= null;
+    return this.__parents__.map(function(pair) {
+	path		= path === null ? pair[0] : [path, pair[0]].join('/');
+	
+	var draft	= self.router.route(path || '/');
+	log.trace("Parent draft using path", path, !!draft, typeof draft, draft instanceof Endpoint);
+	return draft;
+    }).reverse();
+}
+Endpoint.prototype.directives		= function(name) {
+    if (name)
+	return this.directive(name);
+    return this.__directives__;
+}
+Endpoint.prototype.directive		= function (name) {
+    return this.__directives__[name] || null;
 }
 Endpoint.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
@@ -310,30 +460,20 @@ Endpoint.prototype.explode		= function(args, fn, context) {
     var ctx		= context || this;
     return fn.apply(ctx, args);
 }
-Endpoint.prototype.method		= function() {
-    var args		= Array.prototype.slice.call(arguments);
-    var cmd		= eval("this.__methods__."+args.shift());
-    var self		= this;
-    return new Promise(function(f,r) {
-	cmd.call(self, args, f,  function (check) {
-	    check === true ? f() : r(check);
-	});
-    });
-}
-Endpoint.prototype.route		= function(path) {
-    var endpoint	= this.router.route(path);
-    var self		= this;
-    return new Promise(function(f,r) {
-	if (!endpoint)
-	    r({ error: "Dead End",
-		message: "Respond endpoint '"+path+"' does not exist." });
+// Endpoint.prototype.route		= function(path) {
+//     var endpoint	= this.router.route(path);
+//     var self		= this;
+//     return new Promise(function(f,r) {
+// 	if (!endpoint)
+// 	    r({ error: "Dead End",
+// 		message: "Respond endpoint '"+path+"' does not exist." });
 	
-	endpoint.execute(extend({}, self.args))
-	    .then(function(d) {
-		d.error ? r(d) : f(d);
-	    },r);
-    });
-}
+// 	endpoint.execute(extend({}, self.args))
+// 	    .then(function(d) {
+// 		d.error ? r(d) : f(d);
+// 	    },r);
+//     });
+// }
 Endpoint.prototype.respondWith		= function(path, cb) {
     var endpoint	= this.router.route(path);
     if (!endpoint)
@@ -344,44 +484,28 @@ Endpoint.prototype.respondWith		= function(path, cb) {
 	    cb(d);
 	})
 }
-
-function run_sequence(list, fn, index) {
-    if (index === undefined)
-	index		= 0;
-    
-    if (list[index] === undefined)
-	throw Error("End of method chain with no response");
-    if (typeof list[index] !== 'function')
-	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
-
-    fn(list[index], function() {
-	run_sequence(list, fn, index+1);
-    });
-}
-
 Endpoint.prototype.runDirectives	= function() {
     var self			= this;
     var directivesMap		= this.router.__directives__;
 
     var directives		= Object.keys(directivesMap).map(function(k) {
 	var directive		= directivesMap[k];
-	directive.config	= self.directives[k];
+	directive.key		= k;
+	directive.config	= self.directive(k);
 	return directive;
     });
 
     return new Promise(function(f,r) {
 	try {
 	    run_sequence(directives, function(directive, next) {
-		if (directive.config === undefined) {
+		if (directive.config === null) {
+		    log.trace("For path", self.path, "skipping directive", directive.key);
 		    next();
 		}
 		else {
-		    directive.call(self, directive.config, next, function(data) {
-			if (data instanceof Error)
-			    r(data);
-			else
-			    f(data);
-		    });
+		    log.trace("For path", self.path, "run directive '"+directive.key+"' with config", directive.config);
+		    self.next		= next;
+		    directive.call(self, directive.config);
 		}
 	    });
 	}
@@ -390,12 +514,13 @@ Endpoint.prototype.runDirectives	= function() {
 	}
     });
 }
-
 Endpoint.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
 
     var self		= this;
     return new Promise(function(f,r) {
+	self.resolve	= f;
+	self.reject	= r;
 	self.runDirectives().then(function(result) {
 	    f(result);
 	}, f).catch(r);
@@ -407,8 +532,9 @@ var __modules__		= {};
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
 ChaosRouter.module	= function(module) {
-    var module			= require(module);
-    __modules__[module.name]	= module.directives;
+    var module		= require(module);
+    var name		= module.__name__;
+    __modules__[name]	= module;
 }
 ChaosRouter.modules	= function() {
     var modules = [];

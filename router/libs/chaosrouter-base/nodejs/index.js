@@ -2,7 +2,7 @@ var bunyan		= require('bunyan');
 
 var log			= bunyan.createLogger({
     name: "ChaosRouter Base",
-    level: module.parent ? 'error' : 'trace'
+    level: 'trace' // module.parent ? 'error' : 'trace'
 });
 
 var populater		= require('populater');
@@ -15,7 +15,7 @@ function run_sequence(list, fn, index) {
 	index		= 0;
 
     if (list[index] === undefined)
-	throw Error("End of method chain with no response");
+	throw Error("Chaosrouter Base: End of method chain with no response");
     if (typeof list[index] !== 'function')
 	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
 
@@ -53,13 +53,31 @@ function checkspace(args, error) {
     }
 };
 
+var __methods__		= {};
+
 module.exports = {
-    "name": "chaosrouter-base",
-    "directives": {
-	"validate": function(config, next, resolve) {
+    "__name__": "chaosrouter-base",
+    "__init__": function() {
+    },
+    "__enable__": function(method) {
+    },
+    "__directives__": {
+	"validate": function (config) {
 	    var self		= this;
 
-	    var validations	= config.map(function(args) {
+	    var validates	= [];
+	    // Gather parent validations and add to
+	    var parents		= this.parents();
+
+	    parents.reverse().push(this);
+	    parents.forEach(function(parent) {
+		var conf	= parent.directive('validate');
+		if ( Array.isArray(conf) )
+		    for( var i in conf )
+			validates.push( conf[i] );
+	    });
+
+	    var validations	= validates.map(function(args) {
 		
 		var error = {
 		    "error": "Failed Validation",
@@ -67,25 +85,25 @@ module.exports = {
 		};
 		var check	= checkspace(args, error);
 		
-		return function(n) {
+		return function(next) {
 		    if (typeof args === 'string') {
 			var result	= populater(self.args)(args);
-			return check(result, n, resolve);
+			return check(result, next, self.resolve);
 		    }
 		    else if(Array.isArray(args)) {
 			if (args.length === 0) {
 			    error.message	= "Array is empty";
-			    return resolve(error)
+			    return self.reject(error)
 			}
 			
 			var done	= function() {
 			    throw Error("Validation methods should not call the resolve() method");
 			};
 			var validate	= function(result) {
-			    check(result, n, resolve);
+			    check(result, next, self.resolve);
 			};
 			var method	= args.shift();
-			var cmd		= eval("self.__methods__."+method);
+			var cmd		= eval("__methods__."+method);
 			
 			cmd.call(self, args, done, validate);
 		    }
@@ -97,11 +115,11 @@ module.exports = {
 	    });
 
 	    validations.push(function() {
-		next();
+		self.next();
 	    });
 	    run_sequence(validations);
 	},
-	"tasks": function(config, next, resolve) {
+	"tasks": function (config) {
 	    var self		= this;
 
 	    var tasks	= config.map(function(args) {
@@ -112,24 +130,24 @@ module.exports = {
 		};
 		var check	= checkspace(args, error);
 		
-		return function(n) {
+		return function(next) {
 		    if (typeof args === 'string') {
 			var result	= populater(self.args)(args);
-			return check(result, n, resolve);
+			return check(result, next, self.resolve);
 		    }
 		    else if(Array.isArray(args)) {
 			if (args.length === 0) {
 			    error.message	= "Array is empty";
-			    return resolve(error)
+			    return self.reject(error)
 			}
 			
 			var validate	= function(result) {
-			    check(result, n, resolve);
+			    check(result, next, self.resolve);
 			};
 			var method	= args.shift();
-			var cmd		= eval("self.__methods__."+method);
+			var cmd		= eval("__methods__."+method);
 			
-			cmd.call(self, args, resolve, validate);
+			cmd.call(self, args, self.resolve, validate);
 		    }
 		    else {
 			log.error("Args object", args);
@@ -140,12 +158,15 @@ module.exports = {
 	    
 	    run_sequence(tasks);
 	},
-	"response": function(config, next, resolve) {
+	"response": function (config) {
+	    var self		= this;
+	    
 	    if ( typeof config === "string" ) {
-		response		= populater(this.args)(config);
+		var ctx			= populater(self.args);
+		response		= ctx(config);
 		if ( typeof response === "string" ) {
 		    if(! fs.existsSync(response) ) {
-			return resolve({
+			return self.reject({
 			    error: "Invalid File",
 			    message: "The response file was not found"
 			});
@@ -154,28 +175,34 @@ module.exports = {
 		    try {
 			response	= JSON.parse(response)
 		    } catch(err) {
-			return resolve({
+			return self.reject({
 			    error: "Invalid File",
 			    message: "The response file was not valid JSON"
 			});
 		    }
-		    return resolve(response);
+		    return self.resolve(response);
 		}
 		else {
-		    return resolve(response);
+		    return self.resolve(response);
 		}
 	    }
-	    resolve(restruct(this.args, config));
+	    self.resolve(restruct(self.args, config));
 	},
-	"structure_update": function(config, next, resolve) {
-	    if (this.directives['structure'] === undefined)
-		return resolve({
+	"structure_update": function (config) {
+	    var self		= this;
+	    
+	    if (this.directive('structure') === undefined)
+		return self.reject({
 		    error: "Structure Update Failed",
 		    message: "Cannot update undefined; no structure is defined at "+this.route
 		});
 	    
-	    extend( this.directive['structure'], config );
-	    next();
+	    extend( this.directive('structure'), config );
+	    self.next();
 	},
+    },
+    methods: function(dict) {
+	for(var k in dict)
+	    __methods__[k]	= dict[k];
     },
 };

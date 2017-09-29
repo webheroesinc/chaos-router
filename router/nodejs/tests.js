@@ -1,32 +1,36 @@
-
-var extend		= require('util')._extend;
-var fs			= require('fs');
-
-var Promise		= require('promise');
-var chaosrouter		= require('./chaosrouter.js');
-var fill		= chaosrouter.populater;
-var restruct		= chaosrouter.restruct;
-var knex		= require('knex')({
-    client: 'sqlite',
-    connection: {
-	filename: '../../testing.sqlite'
-    }
-});
-knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 var bunyan	= require('bunyan');
 var log		= bunyan.createLogger({
     name: "ChaosRouter Tests",
     level: 'debug'
 });
 
+var extend		= require('util')._extend;
+var fs			= require('fs');
+var Promise		= require('promise');
+var chaosrouter		= require('./chaosrouter.js');
+var knexlib		= require('knex')
+
+
+var knex		= knexlib({
+    client: 'sqlite',
+    connection: {
+	filename: '../../testing.sqlite'
+    }
+});
+knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
+
+
 chaosrouter.modules( '../../router/libs/chaosrouter-base/nodejs/index.js',
 		     '../../router/libs/chaosrouter-sql/nodejs/index.js' );
+
 var router		= chaosrouter('../../routes.json');
 
-router.module('chaosrouter-base').enable();
-router.module('chaosrouter-sql').enable();
+router.modules('chaosrouter-base', 'chaosrouter-sql');
 
-router.executables({
+var crbase		= router.module('chaosrouter-base');
+var crsql		= router.module('chaosrouter-sql');
+
+crbase.methods({
     "fail_false": function(args, _, validate) {
 	validate(false);
     },

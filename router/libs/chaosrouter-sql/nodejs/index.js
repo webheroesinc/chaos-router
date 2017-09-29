@@ -2,24 +2,26 @@ var bunyan		= require('bunyan');
 
 var log			= bunyan.createLogger({
     name: "ChaosRouter SQL",
-    level: module.parent ? 'error' : 'trace'
+    level: 'trace' // module.parent ? 'error' : 'trace'
 });
 
 var populater		= require('populater');
 var restruct		= require('restruct-data');
 
 module.exports = {
-    "name": "chaosrouter-sql",
-    "directives": {
-	"sql": function(config, next, resolve) {
+    "__name__": "chaosrouter-sql",
+    "__directives__": {
+	"sql": function (config) {
+	    var self		= this;
+	    
 	    var knex		= this.args.db;
 	    var q		= knex.select();
 
-	    var table		= this.directives['table'];
-	    var where		= this.directives['where'];
-	    var joins		= this.directives['joins'] || [];
-	    var columns		= this.directives['columns'] || [];
-	    var struct		= this.directives['structure'];
+	    var table		= this.directive('table');
+	    var where		= this.directive('where');
+	    var joins		= this.directive('joins') || [];
+	    var columns		= this.directive('columns') || [];
+	    var struct		= this.directive('structure');
 
 	    q.from(table);
 	    
@@ -40,15 +42,15 @@ module.exports = {
     		q.where( knex.raw(populater(this.args)(where)) );
 	    }
 
-	    // log.trace("Query: \n"+q.toString());
+	    log.trace("Query: \n"+q.toString());
 
 	    q.then(function(result) {
 		var result	= struct === undefined
 	    	    ? result
 	    	    : restruct(result, struct);
 
-		resolve(result);
-	    }, resolve).catch(resolve);
+		self.resolve(result);
+	    }, self.reject).catch(self.reject);
 	},
     },
 };
