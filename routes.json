@@ -2,8 +2,8 @@
     "chat": {
 	":room": {
 	    "__response__": {
-		"title": "< data.title",
-		"message": "< data.message"
+		"title": "< input.data.title",
+		"message": "< input.data.message"
 	    },
 	    "__trigger__": [
 		"/chat/{{path.room}}"
@@ -83,20 +83,20 @@
 		"__response__": "../../static_result.json"
 	    },
 	    "dynamic_file": {
-		"__response__": "< file"
+		"__response__": "< input.file"
 	    },
 	    "dynamic": {
-		"__response__": "< name"
+		"__response__": "< input.name"
 	    }
 	},
 	"test_validate": {
 	    ":id": {
 		"__validate__": [
-		    ["Validate.pass", "< path.id"]
+		    ["Validate.pass", "< params.id"]
 		],
 		"__sql__": true,
 		"__table__": "people",
-		"__where__": "person_id = {{path.id}}",
+		"__where__": "person_id = {{params.id}}",
 		"__structure__": {
 		    "id": "= {{person_id}}",
 		    "name": {

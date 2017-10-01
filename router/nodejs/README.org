@@ -96,19 +96,13 @@
    #+END_SRC
 
 
-** Configure Module
+** Calling Module Methods
    
 
    #+BEGIN_SRC javascript
    var module1		= router.module('module1');
    
-   module1.method('method', function() {
-       // 'this' is the router context
-       this.module('chaosrouter-base').method();
-       this.route('')
-   });
-   module1.route('method', function() {
-   });
+   module1.run_some_method_on_the_module();
    #+END_SRC
 
    
@@ -180,6 +174,7 @@
 
     var draft		= router.route('/user');
 
+    draft.id();				// /users
     draft.path;				// /users
     draft.raw_path;			// /users
     draft.segments()			// [ 'users' ]
@@ -199,6 +194,7 @@
 
     var draft		= router.route('/user/1');
 
+    draft.id();				// /users/1
     draft.path;				// /users/1
     draft.raw_path;			// /users/:id
     draft.segments()			// [ 'users', '1' ]
@@ -244,32 +240,37 @@
 ** Creating a Module
    A module is simply an object with the name of the module, and a dictionary of directive names and
    functions.  The module name is the unique name that will be used to reference the module after it
-   is loaded.
+   is loaded.  When ChaosRouter loads a module, it will call the export function passing itself as
+   the first argument.  It is important to have access to the ChoasRouter module to have full
+   control.  For instance, a module could load several other modules, or use the 'restuct-data' and
+   'populater' modules that are loaded in the ChaosRouter module.
 
    #+BEGIN_SRC javascript
-   module.exports = {
-       "__name__": <module ID>,
-       "__directives__": {
-           <directive name>: function(<config>) {
+   module.exports = function(chaosrouter) {
+       return {
+           "__name__": <module ID>,
+           "__directives__": {
+               <directive name>: function(<config>) {
+                   ...
+               },
+               <directive name>: function(<config>) {
+                   ...
+               },
                ...
            },
-           <directive name>: function(<config>) {
+           "__init__": function() {
                ...
            },
+           "__enable__": function(method) {
+               ...
+           },
+           "__disable__": function(method) {
+               ...
+           },
+           <key>: <value>,
            ...
-       },
-       "__init__": function() {
-           ...
-       },
-       "__enable__": function(method) {
-           ...
-       },
-       "__disable__": function(method) {
-           ...
-       },
-       <key>: <value>,
-       ...
-   }
+       };
+   };
    #+END_SRC
 
    You can access anything inside the module using

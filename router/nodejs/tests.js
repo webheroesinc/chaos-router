@@ -51,14 +51,14 @@ crbase.methods({
     "hello_world": function(args, resp) {
 	resp({
 	    "title": "Hello World",
-	    "message": this.args.message
+	    "message": this.input.message
 	});
     },
     "ParentClass": {
 	"heythere": function(args, resp) {
 	    resp({
 		title: "Parent Class Test",
-		message: this.args.message
+		message: this.input.message
 	    })
 	}
     }
@@ -70,7 +70,7 @@ function json(d,f) {
 
 var transaction		= null;
 
-router.set_arguments({
+router.set_input({
     "db": knex,
 });
 

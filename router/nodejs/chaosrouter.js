@@ -166,7 +166,7 @@ function Router(data, opts) {
     this.config		= {};
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
-    this.baseArgs	= {}
+    this.baseInput	= {}
     this.__root__	= Draft(this);
     
     if (is_dict(data))
@@ -311,12 +311,12 @@ Router.prototype.directive		= function (name, fn) {
 
     this.__directives__[name]		= fn;
 }
-Router.prototype.set_arguments	= function(args) {
-    if (!is_iterable(args))
+Router.prototype.set_input		= function(input) {
+    if (!is_iterable(input))
 	return false;
     
-    for ( var name in args )
-	this.baseArgs[name] = args[name];
+    for ( var name in input )
+	this.baseInput[name] = input[name];
 }
 Router.prototype.route	= function(path) {
     log.info("Routing new route", path);
@@ -334,6 +334,7 @@ function Draft(parent, key) {
     var self			= this;
     self.key			= key;
     self.vkey			= null;
+    self.input			= {};
 
     // If no 'key' is given, we are creating the root node.  Parent should be the Router Object.
     if (parent instanceof Router) {
@@ -373,7 +374,7 @@ function Draft(parent, key) {
 	});
 
 	self.router		= parent.router;
-	self.args		= Object.assign({}, self.router.baseArgs, { "path": self.params });
+	self.input		= Object.assign({}, self.router.baseInput, { "path": self.params });
 	self.__parent__		= parent;
 	self.__parents__	= parent.parents().concat([parent]);
     }
@@ -452,13 +453,12 @@ Draft.prototype.directive		= function (name, config) {
     }
     return this.__directives__[name] || null;
 }
-Draft.prototype.set_arguments	= function(args) {
-    if (!is_iterable(args)) {
+Draft.prototype.set_input	= function(input) {
+    if (!is_iterable(input)) {
 	return false;
     }
-    delete args.path;
-    for ( var name in args )
-	this.args[name] = args[name];
+    for ( var name in input )
+	this.input[name] = input[name];
 }
 Draft.prototype.runDirectives	= function() {
     var self			= this;
@@ -490,8 +490,8 @@ Draft.prototype.runDirectives	= function() {
 	}
     });
 }
-Draft.prototype.execute		= function(args) {
-    if (args) this.set_arguments(args);
+Draft.prototype.execute		= function(input) {
+    if (input) this.set_input(input);
 
     var self		= this;
     return new Promise(function(f,r) {
@@ -511,7 +511,7 @@ function ChaosRouter(data, opts) {
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
 ChaosRouter.module	= function(module) {
-    var module		= require(module);
+    var module		= require(module)(ChaosRouter);
     var name		= module.__name__;
     __modules__[name]	= module;
 }
