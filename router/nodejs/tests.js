@@ -291,30 +291,94 @@ describe("ChaosRouter", function() {
     describe("Draft object", function() {
 
 	it("check attributes and methods", function(done) {
-	    var draft		= router.route("/get/people");
+	    var draft		= router.route("/get/people/1");
 	    
 	    expect(draft).to.be.an("object");
+
+	    log.info("Testing Draft.key");
+	    expect(draft.key).to.be.a("string");
+	    expect(draft.key).to.equal("1");
+
+	    log.info("Testing Draft.vkey");
+	    expect(draft.vkey).to.be.a("string");
+	    expect(draft.vkey).to.equal(":id");
+
+	    log.info("Testing Draft.id()");
+	    expect(draft.id()).to.be.a("string");
+	    expect(draft.id()).to.equal("/get/people/1");
+
+	    log.info("Testing Draft.path");
 	    expect(draft.path).to.be.a("string");
-	    expect(draft.router_path).to.be.a("string");
+	    expect(draft.path).to.equal("/get/people/1");
+	    
+	    log.info("Testing Draft.raw_path");
+	    expect(draft.raw_path).to.be.a("string");
+	    expect(draft.raw_path).to.equal("/get/people/:id");
+	    
+	    log.info("Testing Draft.segments()");
 	    expect(draft.segments()).to.be.an("array");
-	    expect(draft.router_segments()).to.be.an("array");
+	    expect(draft.segments()).to.have.length(3);
+	    expect(draft.segments()[2]).to.equal("1");
+	    
+	    log.info("Testing Draft.raw_segments()");
+	    expect(draft.raw_segments()).to.be.an("array");
+	    expect(draft.raw_segments()).to.have.length(3);
+	    expect(draft.raw_segments()[2]).to.equal(":id");
+	    
+	    log.info("Testing Draft.params");
 	    expect(draft.params).to.be.an("object");
+	    expect(draft.params.id).to.equal("1");
+	    expect(Object.keys(draft.params)).to.have.length(1);
+	    
+	    log.info("Testing Draft.raw");
 	    expect(draft.raw).to.be.an("object");
-	    expect(draft.raw).to.be.an("object");
+	    // When the "base" directive runs on Draft construction the length will be 5
+	    expect(Object.keys(draft.raw)).to.have.length(2);
+	    expect(draft.raw.__base__).to.equal("..");
+	    expect(draft.raw.__structure__).to.be.an("object");
+	    
+	    log.info("Testing Draft.config");
 	    expect(draft.config).to.be.an("object");
+	    expect(draft.config).to.equal(draft.raw);
+	    
+	    log.info("Testing Draft.directives()");
 	    expect(draft.directives()).to.be.an("object");
-	    expect(draft.directive('__nothing__')).to.be.null;
+	    // When the "base" directive runs on Draft construction the length will be 5
+	    expect(Object.keys(draft.directives())).to.have.length(2);
+	    expect(draft.directives().base).to.equal("..");
+	    expect(draft.directives().structure).to.be.an("object");
+	    
+	    log.info("Testing Draft.directive('__notexists__')");
+	    expect(draft.directive("__notexists__")).to.be.null;
+	    
+	    log.info("Testing Draft.parent()");
 	    expect(draft.parent()).to.be.an("object");
+	    expect(draft.parent().id()).to.be.a("string");
+	    expect(draft.parent().id()).to.equal("/get/people");
+	    
+	    log.info("Testing Draft.parents()");
 	    expect(draft.parents()).to.be.an("array");
-	    expect(draft.child('create')).to.be.an("object");
+	    expect(draft.parents()).to.have.length(3);
+	    expect(draft.parents()[0]).to.equal(draft.parent());
+
+	    var draft		= draft.route("../../people");
+	    
+	    log.info("Testing Draft.child('create')");
+	    expect(draft.child("create")).to.be.an("object");
+	    expect(draft.child("create").id()).to.be.a("string");
+	    expect(draft.child("create").id()).to.equal("/get/people/create");
+	    
+	    log.info("Testing Draft.children");
 	    expect(draft.children()).to.be.an("array");
+	    expect(draft.children()).to.have.length(2);
+	    
 	    done();
 	});
 	
     });
 });
 
-// test_endpoint('/get/trigger/400', null, function (result) {
+// test_endpoint("/get/trigger/400", null, function (result) {
 // 	if (result.status !== true)
 // 	    return ["Unexpected result", result];
 // 	return true;

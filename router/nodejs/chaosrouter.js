@@ -2,7 +2,7 @@ var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
     name: "ChaosRouter",
-    level: 'debug' // module.parent ? 'error' : 'trace'
+    level: 'trace' // module.parent ? 'error' : 'trace'
 });
 
 var Promise	= require('promise');
@@ -89,7 +89,7 @@ function getDirectives(data) {
 	     && noprefix.indexOf(Router.directiveSuffix) === (noprefix.length - Router.directiveSuffix.length)) {
 	    var name		= k.slice(Router.directivePrefix.length, -Router.directiveSuffix.length);
 	    directives[name]	= data[k];
-	    delete data[k];
+	    // delete data[k];
 	}
     }
     return directives;
@@ -152,7 +152,7 @@ function find_child_config(data, key, fn) {
 	}
     }
 
-    fn(config, vname, key);
+    fn(config, vkey, vname, key);
 }
 
 
@@ -162,10 +162,12 @@ function Router(data, opts) {
 
     if (!opts)
 	opts		= {};
-    
+
+    this.config		= {};
     this.configfile	= null;
     this.basepath	= setdefault(opts.basepath, '/');
     this.baseArgs	= {}
+    this.__root__	= Draft(this);
     
     if (is_dict(data))
 	this.config	= data;
@@ -175,10 +177,12 @@ function Router(data, opts) {
 	throw new Error("Unrecognized data type: "+typeof data);
 }
 Router.prototype.root	= function() {
-    if (this.configfile)
+    if (this.configfile) {
 	this.config		= loadConfigFile( this.configfile );
+	this.__root__.config	= this.config;
+    }
     log.debug("Create root node with config, len:", Object.keys(this.config).length);
-    return Draft(this);
+    return this.__root__;
 };
 Router.prototype.modules	= function() {
     var self		= this;
@@ -325,7 +329,6 @@ function Draft(parent, key) {
     if (! (this instanceof Draft))
 	return new Draft(parent, key);
 
-    log.debug("New Draft object with:", typeof parent, ",", "("+typeof key+")", key);
     log.trace("Parent constructor", parent.constructor.name);
 
     var self			= this;
@@ -354,18 +357,19 @@ function Draft(parent, key) {
 	    throw Error(msg);
 	}
 	
-	find_child_config(parent.config, key, function(config, vkey, value) {
-	    if (!config) {
+	find_child_config(parent.config, key, function(config, vkey, vname, value) {
+	    if (config === null) {
 		var msg	= "Dead end; Path leads to nowhere, failed at key";
-		log.error(msg, key, parent.parents());
+		log.error(msg, key, [parent].concat(parent.parents()));
 		throw Error(msg);
 	    }
 	    
 	    self.config		= config;
 	    var params		= {};
-	    params[vkey]	= value;
+	    if(vname)
+		params[vname]	= value;
 	    self.params		= Object.assign({}, parent.params, params);
-	    self.vkey		= null;
+	    self.vkey		= vkey;
 	});
 
 	self.router		= parent.router;
@@ -378,15 +382,20 @@ function Draft(parent, key) {
 	log.warn("No config has been specified");
     
     self.path			= parent.path === undefined ? '' : parent.path+"/"+key;
-    self.router_path		= parent.path === undefined ? '' : parent.router_path+"/"+(self.vkey || key);
+    self.raw_path		= parent.path === undefined ? '' : parent.raw_path+"/"+(self.vkey || key);
     self.raw			= self.config;
     self.__directives__		= getDirectives(self.config);
+    
+    log.debug("New Draft object with: ("+(typeof parent)+")", self.path);
+}
+Draft.prototype.id		= function() {
+    return this.path;
 }
 Draft.prototype.segments	= function() {
     return this.path.replace(/^\//, "").replace(/\/*$/, "").split('/');
 }
-Draft.prototype.router_segments	= function() {
-    return this.router_path.replace(/^\//, "").replace(/\/*$/, "").split('/');
+Draft.prototype.raw_segments	= function() {
+    return this.raw_path.replace(/^\//, "").replace(/\/*$/, "").split('/');
 }
 Draft.prototype.route	= function(path) {
     // If path starts with '/', use router root.
@@ -419,7 +428,7 @@ Draft.prototype.parent		= function() {
     return this.__parent__;
 }
 Draft.prototype.parents		= function() {
-    return this.__parents__.reverse();
+    return this.__parents__.slice().reverse();
 }
 Draft.prototype.child		= function(key) {
     return Draft(this, key);
@@ -427,7 +436,10 @@ Draft.prototype.child		= function(key) {
 Draft.prototype.children	= function(key) {
     var self			= this;
     var nondirectives		= getNonDirectives(this.config);
-    return Object.keys(nondirectives).map(function(key) {self.child(key);});
+    log.trace("Getting children for", self.path, "found these nondirectives", nondirectives);
+    return Object.keys(nondirectives).map(function(key) {
+	return self.child(key);
+    });
 }
 Draft.prototype.directives	= function(name) {
     if (name)
