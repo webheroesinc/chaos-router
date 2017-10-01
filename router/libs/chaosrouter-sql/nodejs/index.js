@@ -2,7 +2,7 @@ var bunyan		= require('bunyan');
 
 var log			= bunyan.createLogger({
     name: "ChaosRouter SQL",
-    level: 'trace' // module.parent ? 'error' : 'trace'
+    level: 'debug' // module.parent ? 'error' : 'trace'
 });
 
 var populater		= require('populater');

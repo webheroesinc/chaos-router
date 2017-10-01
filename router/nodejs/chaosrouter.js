@@ -2,10 +2,9 @@ var bunyan	= require('bunyan');
 
 var log		= bunyan.createLogger({
     name: "ChaosRouter",
-    level: 'trace' // module.parent ? 'error' : 'trace'
+    level: 'debug' // module.parent ? 'error' : 'trace'
 });
 
-var extend	= require('util')._extend;
 var Promise	= require('promise');
 var restruct	= require('restruct-data');
 var populater	= restruct.populater;
@@ -82,21 +81,28 @@ function replaceFileRefs( struct, parents, resp ) {
     }
     return is_flat ? struct[0] : struct;
 }
-
 function getDirectives(data) {
     var directives	= {};
     for (var k in data) {
-	var noprefix	= k.slice(ChaosRouter.directivePrefix.length);
-	if ( k.indexOf(ChaosRouter.directivePrefix) === 0
-	     && noprefix.indexOf(ChaosRouter.directiveSuffix) === (noprefix.length - ChaosRouter.directiveSuffix.length)) {
-	    var name		= k.slice(ChaosRouter.directivePrefix.length, -ChaosRouter.directiveSuffix.length);
+	var noprefix	= k.slice(Router.directivePrefix.length);
+	if ( k.indexOf(Router.directivePrefix) === 0
+	     && noprefix.indexOf(Router.directiveSuffix) === (noprefix.length - Router.directiveSuffix.length)) {
+	    var name		= k.slice(Router.directivePrefix.length, -Router.directiveSuffix.length);
 	    directives[name]	= data[k];
 	    delete data[k];
 	}
     }
     return directives;
 }
-
+function getNonDirectives(data) {
+    var directives	= {};
+    for (var k in data) {
+	if ( k.indexOf(Router.directivePrefix) !== 0 ) {
+	    directives[k]	= data[k];
+	}
+    }
+    return directives;
+}
 function getVariableKey(config) {
     var vkey		= null;
     Object.keys(config).forEach(function(key) {
@@ -110,18 +116,49 @@ function getVariableKey(config) {
     return vkey;
 }
 function loadConfigFile(filepath) {
+    log.trace("Loading config from file", filepath);
     var config	= JSON.parse( fs.readFileSync(filepath) );
     config 	= replaceFileRefs( config, null, function(err) {
 	throw Error(err.error+': '+err.message);
     });
     return config;
 }
+function run_sequence(list, fn, index) {
+    if (index === undefined)
+	index		= 0;
+    
+    if (list[index] === undefined) {
+	var directives	= list.map(function(fn) {return fn.name;});
+	throw Error("End of method chain with no response (undefined index: "+index+", list length: "+list.length+", directives: "+directives.join(', ')+")");
+		   }
+    if (typeof list[index] !== 'function')
+	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
+
+    fn(list[index], function() {
+	run_sequence(list, fn, index+1);
+    });
+}
+function find_child_config(data, key, fn) {
+    var config			= data[key] || null;
+    var params			= {};
+    var vname			= null
+    
+    if (data[key] === undefined) {
+	var vkey		= getVariableKey(data);
+	if (vkey) {
+	    vname		= vkey.slice(1);
+	    config		= data[vkey];
+	    params[vname]	= key;
+	}
+    }
+
+    fn(config, vname, key);
+}
 
 
-
-function ChaosRouter(data, opts) {
-    if (! (this instanceof ChaosRouter))
-	return new ChaosRouter(data, opts);
+function Router(data, opts) {
+    if (! (this instanceof Router))
+	return new Router(data, opts);
 
     if (!opts)
 	opts		= {};
@@ -137,19 +174,20 @@ function ChaosRouter(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
-ChaosRouter.prototype.root	= function() {
+Router.prototype.root	= function() {
     if (this.configfile)
 	this.config		= loadConfigFile( this.configfile );
-    return Endpoint("/", {}, this.config, [], this);
+    log.debug("Create root node with config, len:", Object.keys(this.config).length);
+    return Draft(this);
 };
-ChaosRouter.prototype.modules	= function() {
+Router.prototype.modules	= function() {
     var self		= this;
     
     for (var i in arguments) {
 	var arg		= arguments[i];
 	if (typeof arg === 'string') {
 	    log.trace("Load modules string", arg);
-	    self.module(arg, ChaosRouter.ENABLE_ALL);
+	    self.module(arg, Router.ENABLE_ALL);
 	}
 	else if (typeof arg === 'object') {
 	    var config		= arg;
@@ -178,7 +216,7 @@ ChaosRouter.prototype.modules	= function() {
 		    }
 		}
 		else if (directives === true) {
-		    self.module(name, ChaosRouter.ENABLE_ALL);
+		    self.module(name, Router.ENABLE_ALL);
 		}
 		else if ( Array.isArray(directives) ) {
 		    self.module(name, {
@@ -195,25 +233,25 @@ ChaosRouter.prototype.modules	= function() {
 	}
     }
 }
-ChaosRouter.ENABLE_ALL		= 0;
-ChaosRouter.ENABLE_SELECTION	= 1;
-ChaosRouter.ENABLE_EXCULSION	= 2;
-ChaosRouter.DISABLE_SELECTION	= 3;
-ChaosRouter.prototype.module	= function(name, config) {
+Router.ENABLE_ALL		= 0;
+Router.ENABLE_SELECTION	= 1;
+Router.ENABLE_EXCULSION	= 2;
+Router.DISABLE_SELECTION	= 3;
+Router.prototype.module	= function(name, config) {
     if (typeof config === 'number') {
 	log.trace("Converting config number", config, "to config object");
 	var list		= arguments[2];
 	switch(config) {
-	case ChaosRouter.ENABLE_ALL:
+	case Router.ENABLE_ALL:
 	    return this.module(name, {"enable": true});
 	    break;
-	case ChaosRouter.ENABLE_SELECTION:
+	case Router.ENABLE_SELECTION:
 	    return this.module(name, {"enable": list});
 	    break;
-	case ChaosRouter.ENABLE_EXCLUSION:
+	case Router.ENABLE_EXCLUSION:
 	    return this.module(name, {"exclude": list});
 	    break;
-	case ChaosRouter.DISABLE_SELECTION:
+	case Router.DISABLE_SELECTION:
 	    return this.module(name, {"disable": list});
 	    break;
 	default:
@@ -260,176 +298,149 @@ ChaosRouter.prototype.module	= function(name, config) {
 
     return module;
 };
-ChaosRouter.directivePrefix		= '__';
-ChaosRouter.directiveSuffix		= '__';
-ChaosRouter.prototype.__directives__	= {};
-ChaosRouter.prototype.directive		= function (name, fn) {
+Router.directivePrefix		= '__';
+Router.directiveSuffix		= '__';
+Router.prototype.__directives__	= {};
+Router.prototype.directive		= function (name, fn) {
     if (name === undefined || fn === undefined)
 	throw Error("Must give a name and a callback when registering directives");
 
     this.__directives__[name]		= fn;
 }
-ChaosRouter.prototype.route	= function(path) {
-    return this.root().route(path);
-}
-ChaosRouter.prototype.set_arguments	= function(args) {
+Router.prototype.set_arguments	= function(args) {
     if (!is_iterable(args))
 	return false;
     
     for ( var name in args )
 	this.baseArgs[name] = args[name];
 }
-
-
-function run_sequence(list, fn, index) {
-    if (index === undefined)
-	index		= 0;
-    
-    if (list[index] === undefined) {
-	var directives	= list.map(function(fn) {return fn.name;});
-	throw Error("End of method chain with no response (undefined index: "+index+", list length: "+list.length+", directives: "+directives.join(', ')+")");
-		   }
-    if (typeof list[index] !== 'function')
-	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
-
-    fn(list[index], function() {
-	run_sequence(list, fn, index+1);
-    });
+Router.prototype.route	= function(path) {
+    log.info("Routing new route", path);
+    return this.root().route(path);
 }
 
 
-function Endpoint(path, params, config, parents, router) {
-    if (! (this instanceof Endpoint))
-	return new Endpoint(path, params, config, parents, router);
 
-    this.path		= path;
-    this.params		= params;
-    this.raw		= config;
-    this.router		= router;
-    this.args		= extend(extend({}, router.baseArgs), {
-	"path": params
-    });
+function Draft(parent, key) {
+    if (! (this instanceof Draft))
+	return new Draft(parent, key);
 
-    var directives		= getDirectives(config);
+    log.debug("New Draft object with:", typeof parent, ",", "("+typeof key+")", key);
+    log.trace("Parent constructor", parent.constructor.name);
 
-    if (directives['base'] === undefined)
-	var config	= extend({}, config);
+    var self			= this;
+    self.key			= key;
+    self.vkey			= null;
+
+    // If no 'key' is given, we are creating the root node.  Parent should be the Router Object.
+    if (parent instanceof Router) {
+	self.config		= parent.config;
+	self.params		= {};
+	self.router		= parent;
+	self.__parent__		= null;
+	self.__parents__	= [];
+    }
     else {
-	var base	= this.route( directives['base'], config, parents );
-	log.trace("Basing off of", directives['base'], Object.keys(base.directives()) );
-	delete directives['base'];
-
-	var merged	= {};
-	extend(merged, base.__directives__);
-	extend(merged, directives);
-	directives	= merged;
-    }
-    
-    this.__parents__	= parents;
-    this.__directives__	= directives;
-}
-Endpoint.prototype.route	= function(path, data, parents) {
-    var originalPath	= path;
-    data		= setdefault(data, null);
-    parents		= setdefault(parents, null);
-
-    // If a 'this.configfile' has been specified. Load config from 'this.configfile' path and
-    // replace all references.  This happens everytime 'this.route' is called, which isn't ideal.
-    // There should be a setting to load it everytime for development, but the default should be
-    // once at initialization.
-    if (this.router.configfile !== null)
-	this.config	= loadConfigFile( this.router.configfile );
-
-    // Initialize the path variable collection
-    var variables	= {};
-    
-    // If a relative path was not provided, then assume we are starting at the 'root' of the route
-    // configuration.  If a relative path was provided, but no data or parents were given, there
-    // should be an error.
-    if (data === null || path.indexOf('/') === 0) {
-	data		= this.config;
-	parents		= [['', data]];
-	if (path.indexOf(this.router.basepath) === 0)
-	    path	= path.slice(this.router.basepath.length);
-    }
-
-    // Remove leading and trailing slashes, then create the path segments list.
-    var _p		= path.replace(/^\//, "").replace(/\/*$/, "");
-    var segs		= _p.split('/');
-
-    // Path leads to the 'root' of route configuration, so return now.
-    if (!path || path === '') {
-	var directives	= getDirectives(this.config);
-    	return Endpoint(originalPath, variables, this.config, parents, this.router);
-    }
-
-    var jsonkeys	= [];	// Used for tracking the raw path from the configuration.
-    var last_seg;		// Used for pushing onto parents list
-
-    for (var i in segs) {
-	var seg		= segs[i];
-
-	if (seg === "..") {
-	    // Reset state to parent node
-	    var parent	= parents.pop();
-	    seg		= parent[0];
-	    data	= parent[1];
+	log.trace("Parent identity:", "'"+parent.key+"'", parent.parents().map((p) => p.key));
+	
+	if (!(parent instanceof Router || parent instanceof Draft)) {
+	    var msg = "Parent is not an instance of Router or Draft classes ("+ (typeof parent) +") "+ parent;
+	    log.error(msg);
+	    throw Error(msg);
 	}
-	else {
-	    // Since we are not going into the parent node, put the last segment and data onto the
-	    // parents list.
-	    if (last_seg !== undefined)
-		parents.push([last_seg, data]);
-
-	    // If the current 'segment' is not in the parent configuration, search for the wildcard
-	    // key.
-	    if (data[seg] === undefined) {
-		var key			= getVariableKey(data);
-		
-		if (key === null)
-		    return false;
-		
-		data			= data[key];
-		var vname		= key.slice(1);	// Remove ':' from key to get variable name
-
-		variables[vname]	= decodeURIComponent(seg);
-		jsonkeys.push(key);
-	    }
-	    // Replace parent configuration with the matching segment's configuration.
-	    else {
-		data	= data[seg];
-
-		jsonkeys.push(seg);
-	    }
+	if (!parent.config) {
+	    var msg = "Parent is missing 'config' ("+ (typeof parent.config) +") ";
+	    log.error(msg);
+	    throw Error(msg);
 	}
 	
-	last_seg	= seg;
+	find_child_config(parent.config, key, function(config, vkey, value) {
+	    if (!config) {
+		var msg	= "Dead end; Path leads to nowhere, failed at key";
+		log.error(msg, key, parent.parents());
+		throw Error(msg);
+	    }
+	    
+	    self.config		= config;
+	    var params		= {};
+	    params[vkey]	= value;
+	    self.params		= Object.assign({}, parent.params, params);
+	    self.vkey		= null;
+	});
+
+	self.router		= parent.router;
+	self.args		= Object.assign({}, self.router.baseArgs, { "path": self.params });
+	self.__parent__		= parent;
+	self.__parents__	= parent.parents().concat([parent]);
     }
 
-    // router_path	= jsonkeys.join('/');
-    return Endpoint(originalPath, variables, data, parents, this.router);
+    if (!self.config)
+	log.warn("No config has been specified");
+    
+    self.path			= parent.path === undefined ? '' : parent.path+"/"+key;
+    self.router_path		= parent.path === undefined ? '' : parent.router_path+"/"+(self.vkey || key);
+    self.raw			= self.config;
+    self.__directives__		= getDirectives(self.config);
 }
-Endpoint.prototype.parents		= function() {
-    var self		= this;
+Draft.prototype.segments	= function() {
+    return this.path.replace(/^\//, "").replace(/\/*$/, "").split('/');
+}
+Draft.prototype.router_segments	= function() {
+    return this.router_path.replace(/^\//, "").replace(/\/*$/, "").split('/');
+}
+Draft.prototype.route	= function(path) {
+    // If path starts with '/', use router root.
+    // Otherwise use this node
+    log.debug("Routing path", path);
+    var node		= path[0] === '/' ? this.router.root() : this;
 
-    var path		= null;
-    return this.__parents__.map(function(pair) {
-	path		= path === null ? pair[0] : [path, pair[0]].join('/');
+    if (! (node instanceof Draft))
+	log.error("Node is not an instance of Draft", node);
+
+    var segments	= path.split('/');
+    log.debug("Segments", segments);
+    for (var i in segments) {
+	var seg		= segments[i];
+	if (seg === '')
+	    continue;
+
+	// '..' segment means use parent node, if parent returns 'null' that means we are already at
+	// the root.  Instead of throwing and Error, just stay at the root.
+	node		= seg === '..'
+	    ? node.parent() || node
+	    : node.child(seg);
 	
-	var draft	= self.router.route(path || '/');
-	log.trace("Parent draft using path", path, !!draft, typeof draft, draft instanceof Endpoint);
-	return draft;
-    }).reverse();
+	if (node === null)
+	    throw Error("Path lead to a dead end", path);
+    }
+    return node;
 }
-Endpoint.prototype.directives		= function(name) {
+Draft.prototype.parent		= function() {
+    return this.__parent__;
+}
+Draft.prototype.parents		= function() {
+    return this.__parents__.reverse();
+}
+Draft.prototype.child		= function(key) {
+    return Draft(this, key);
+}
+Draft.prototype.children	= function(key) {
+    var self			= this;
+    var nondirectives		= getNonDirectives(this.config);
+    return Object.keys(nondirectives).map(function(key) {self.child(key);});
+}
+Draft.prototype.directives	= function(name) {
     if (name)
 	return this.directive(name);
     return this.__directives__;
 }
-Endpoint.prototype.directive		= function (name) {
+Draft.prototype.directive		= function (name, config) {
+    if (config) {
+	this.__directives__[name]	= config;
+    }
     return this.__directives__[name] || null;
 }
-Endpoint.prototype.set_arguments	= function(args) {
+Draft.prototype.set_arguments	= function(args) {
     if (!is_iterable(args)) {
 	return false;
     }
@@ -437,75 +448,28 @@ Endpoint.prototype.set_arguments	= function(args) {
     for ( var name in args )
 	this.args[name] = args[name];
 }
-Endpoint.prototype.recursiveFill= function(args, data) {
-    for (var i in args) {
-	var v		= null;
-	var arg		= args[i];
-	if (typeof arg === 'string') {
-	    try {
-		v	= populater(data)(arg);
-	    } catch (e) {}
-	}
-	else if (typeof arg === 'object' && arg !== null) {
-	    v		= this.recursiveFill(arg, data);
-	}
-	else {
-	    v		= arg;
-	}
-	args[i]		= v;
-    }
-    return args;
-}
-Endpoint.prototype.explode		= function(args, fn, context) {
-    var ctx		= context || this;
-    return fn.apply(ctx, args);
-}
-// Endpoint.prototype.route		= function(path) {
-//     var endpoint	= this.router.route(path);
-//     var self		= this;
-//     return new Promise(function(f,r) {
-// 	if (!endpoint)
-// 	    r({ error: "Dead End",
-// 		message: "Respond endpoint '"+path+"' does not exist." });
-	
-// 	endpoint.execute(extend({}, self.args))
-// 	    .then(function(d) {
-// 		d.error ? r(d) : f(d);
-// 	    },r);
-//     });
-// }
-Endpoint.prototype.respondWith		= function(path, cb) {
-    var endpoint	= this.router.route(path);
-    if (!endpoint)
-	cb({ error: "Dead End",
-	     message: "Respond endpoint '"+path+"' does not exist." });
-    endpoint.execute(extend({}, this.args))
-	.then(function(d) {
-	    cb(d);
-	})
-}
-Endpoint.prototype.runDirectives	= function() {
+Draft.prototype.runDirectives	= function() {
     var self			= this;
     var directivesMap		= this.router.__directives__;
 
     var directives		= Object.keys(directivesMap).map(function(k) {
 	var directive		= directivesMap[k];
 	directive.key		= k;
-	directive.config	= self.directive(k);
 	return directive;
     });
 
     return new Promise(function(f,r) {
 	try {
 	    run_sequence(directives, function(directive, next) {
-		if (directive.config === null) {
+		var config		= self.directive(directive.key);
+		if (config === null) {
 		    log.trace("For path", self.path, "skipping directive", directive.key);
 		    next();
 		}
 		else {
-		    log.trace("For path", self.path, "run directive '"+directive.key+"' with config", directive.config);
+		    log.trace("For path", self.path, "run directive '"+directive.key+"' with config", config);
 		    self.next		= next;
-		    directive.call(self, directive.config);
+		    directive.call(self, config);
 		}
 	    });
 	}
@@ -514,7 +478,7 @@ Endpoint.prototype.runDirectives	= function() {
 	}
     });
 }
-Endpoint.prototype.execute		= function(args) {
+Draft.prototype.execute		= function(args) {
     if (args) this.set_arguments(args);
 
     var self		= this;
@@ -529,6 +493,9 @@ Endpoint.prototype.execute		= function(args) {
 
 var __modules__		= {};
 
+function ChaosRouter(data, opts) {
+    return Router(data, opts);
+}
 ChaosRouter.restruct	= restruct;
 ChaosRouter.populater	= restruct.populater;
 ChaosRouter.module	= function(module) {

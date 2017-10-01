@@ -2,7 +2,7 @@ var bunyan		= require('bunyan');
 
 var log			= bunyan.createLogger({
     name: "ChaosRouter Base",
-    level: 'trace' // module.parent ? 'error' : 'trace'
+    level: 'debug' // module.parent ? 'error' : 'trace'
 });
 
 var populater		= require('populater');
@@ -62,6 +62,31 @@ module.exports = {
     "__enable__": function(method) {
     },
     "__directives__": {
+	"base": function (config) {
+	    var self		= this;
+
+	    var node		= self;
+	    var basepath	= config;
+	    var fullpath	= basepath;
+	    while (basepath) {
+		var node	= node.route(basepath);
+		var directives	= node.directives();
+
+		delete directives.validate;
+
+		basepath	= directives.base;
+		delete directives.base;
+
+		for (var name in directives) {
+		    log.trace("Copying directive", name, "from path", fullpath);
+		    self.directive(name, directives[name]);
+		}
+
+		if (basepath)
+		    fullpath	= fullpath+"/"+basepath;
+	    }
+	    self.next();
+	},
 	"validate": function (config) {
 	    var self		= this;
 
@@ -137,6 +162,7 @@ module.exports = {
 		    }
 		    else if(Array.isArray(args)) {
 			if (args.length === 0) {
+			    log.error("Got here, what's the hold up?");
 			    error.message	= "Array is empty";
 			    return self.reject(error)
 			}

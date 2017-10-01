@@ -1,3 +1,3 @@
 
 tests:
-	nodejs tests.js | bunyan
+	mocha tests.js | bunyan
