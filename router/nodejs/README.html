@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>README</title>
+<!-- 2017-10-02 Mon 00:51 -->
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="generator" content="Org-mode" />
+<meta  name="author" content="Ubuntu" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  pre.src-sh:before    { content: 'sh'; }
+  pre.src-bash:before  { content: 'sh'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-R:before     { content: 'R'; }
+  pre.src-perl:before  { content: 'Perl'; }
+  pre.src-java:before  { content: 'Java'; }
+  pre.src-sql:before   { content: 'SQL'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.right  { text-align: center;  }
+  th.left   { text-align: center;   }
+  th.center { text-align: center; }
+  td.right  { text-align: right;  }
+  td.left   { text-align: left;   }
+  td.center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara:nth-child(2) { display: inline; }
+  .footpara { display: block; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">README</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">1. ChaosRouter Documentation</a>
+<ul>
+<li><a href="#sec-1-1">1.1. Install</a></li>
+<li><a href="#sec-1-2">1.2. Initializing</a></li>
+<li><a href="#sec-1-3">1.3. Loading Modules</a></li>
+<li><a href="#sec-1-4">1.4. Enable Directives</a></li>
+<li><a href="#sec-1-5">1.5. Calling Module Methods</a></li>
+<li><a href="#sec-1-6">1.6. Usage</a>
+<ul>
+<li><a href="#sec-1-6-1">1.6.1. Draft Node</a></li>
+</ul>
+</li>
+<li><a href="#sec-1-7">1.7. Creating a Directive</a></li>
+<li><a href="#sec-1-8">1.8. Creating a Module</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> ChaosRouter Documentation</h2>
+<div class="outline-text-2" id="text-1">
+</div><div id="outline-container-sec-1-1" class="outline-3">
+<h3 id="sec-1-1"><span class="section-number-3">1.1</span> Install</h3>
+<div class="outline-text-3" id="text-1-1">
+<div class="org-src-container">
+
+<pre class="src src-bash">npm install chaosrouter --save
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-2" class="outline-3">
+<h3 id="sec-1-2"><span class="section-number-3">1.2</span> Initializing</h3>
+<div class="outline-text-3" id="text-1-2">
+<p>
+By initializing with a file path instead of an object, ChaosRouter can reload the config file
+file whenever there is a change.  Using an object would require restarting the server everytime
+it changed.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">var chaosrouter      = require('chaosrouter');
+
+var router           = chaosrouter({
+    "api": {
+	"helloworld": {
+	    "__response__": "Hello World!"
+	}
+    }
+});
+
+// Load JSON from a file
+var router           = chaosrouter('./routes.json');
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-3" class="outline-3">
+<h3 id="sec-1-3"><span class="section-number-3">1.3</span> <a id="Loading-Modules" name="Loading-Modules"></a> Loading Modules</h3>
+<div class="outline-text-3" id="text-1-3">
+<div class="org-src-container">
+
+<pre class="src src-javascript">var chaosrouter = require('chaosrouter');
+
+// Load several modules
+chaosrouter.modules('module1', 'module2', ...);
+
+// Load one at a time
+chaosrouter.module('module1');
+chaosrouter.module('module2');
+chaosrouter.module(...);
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-4" class="outline-3">
+<h3 id="sec-1-4"><span class="section-number-3">1.4</span> Enable Directives</h3>
+<div class="outline-text-3" id="text-1-4">
+<p>
+Directives are not enabled automatically, for good reason.  Let's say you have 2 modules you like
+but they both have a directive with the same name.  If they loaded automatically, one would
+overwrite the other.  In order to prevent this overwrite, you would have to know every directive
+that every module is loading.  You would have to manually disable the one in the module you don't
+want, and enable the one in the module you do want.  To be safe all the time, directives have to
+be enabled on a per module basis.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">// Enable all directives
+router.module('module1', router.ENABLE_ALL);
+
+// Enable all directives
+router.modules('module1');
+router.modules({
+    'module1': true,
+});
+router.module('module1', router.ENABLE_ALL);
+
+
+// Enable specific directives
+router.modules({
+    'module1': ['directive1', 'directive2', ...],
+});
+router.module('module1', {
+    enable: ['directive1', 'directive2', ...],
+});
+router.module('module1', router.ENABLE_SELECTION, ['directive1', 'directive2', ...]);
+
+
+// Enable all excluding specific directives
+router.modules({
+    'module1 ^': ['directive1', 'directive2', ...],
+});
+router.module('module1', {
+    exclude: ['directive1', 'directive2', ...],
+});
+router.module('module1', router.ENABLE_EXCLUSION, ['directive1', 'directive2', ...]);
+
+
+// Disable specific directives
+router.modules({
+    'module1 !': ['directive1', 'directive2', ...],
+});
+router.module('module1', {
+    disable: ['directive1', 'directive2', ...],
+});
+router.module('module1', router.DISABLE_SELECTION, ['directive1', 'directive2', ...]);
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-5" class="outline-3">
+<h3 id="sec-1-5"><span class="section-number-3">1.5</span> Calling Module Methods</h3>
+<div class="outline-text-3" id="text-1-5">
+<div class="org-src-container">
+
+<pre class="src src-javascript">var module1          = router.module('module1');
+
+module1.run_some_method_on_the_module();
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-6" class="outline-3">
+<h3 id="sec-1-6"><span class="section-number-3">1.6</span> Usage</h3>
+<div class="outline-text-3" id="text-1-6">
+<p>
+Here is a simple example of using ChaosRouter to return simple, static text for an endpoint.  We
+will break down what is happening:
+</p>
+
+<ol class="org-ol">
+<li>Loading 'chaosrouter'
+</li>
+<li>Initializing chaosrouter with the map of endpoints
+</li>
+<li>Defining the <code>__response__</code> directive
+</li>
+<li>Route a path and get the endpoint Draft object
+</li>
+<li>Run the Draft and log the returned result
+</li>
+</ol>
+
+<p>
+Instead of defining your own directives, you can load the 'chaosrouter-base' module and use our
+standard directive implementations.  See <a href="#Loading-Modules">Loading Modules</a> section and the <i>ChaosRouter Libs</i>
+Documentation.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">var chaosrouter      = require('chaosrouter');
+
+var router = chaosrouter({
+    "api": {
+	"helloworld": {
+	    "__response__": "Hello World!"
+	}
+    }
+});
+
+router.directive('response', function(text, _, resolve) {
+    resolve(text);
+});
+
+// Get the Draft Node for route path /api/helloworld
+var draft            = router.route('/api/helloworld');
+
+draft.run().then(...
+draft.execute().then(...
+draft.make().then(...
+draft.create().then(...
+draft.go().then(...
+draft.complete().then(...
+draft.finish().then(...
+draft.then(...
+draft.proceed().then(function(data) {
+    console.log(data); // == "Hello World!"
+});
+</pre>
+</div>
+</div>
+
+<div id="outline-container-sec-1-6-1" class="outline-4">
+<h4 id="sec-1-6-1"><span class="section-number-4">1.6.1</span> Draft Node</h4>
+<div class="outline-text-4" id="text-1-6-1">
+<p>
+This Object represents a specific point in the routes configuration.  A Draft Node contains all
+the directive instructions for that configuration point.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">var chaosrouter     = require('chaosrouter');
+
+var router = chaosrouter({
+    "user": {
+	"__pre__": true,
+	"__response__": { "1": "Robin Williams" },
+	":id": {
+	    "__response__": {
+		"id": "&lt; path.id",
+		"name": "Robin Williams",
+		"wikipedia": "https://en.wikipedia.org/wiki/Robin_Williams"
+	    }
+	}
+    }
+});
+
+var draft           = router.route('/user');
+
+draft.id();                         // /users
+draft.path;                         // /users
+draft.raw_path;                     // /users
+draft.segments()                    // [ 'users' ]
+draft.raw_segments()                // [ 'users' ]
+draft.params;                       // {}
+draft.raw                           // { "__pre__": true, "__response__": { ... }, ":id": { ... } }
+draft.router;                       // Router Object
+
+draft.directives();                 // { "pre": true, "response": { "1": "Robin Williams" } }
+draft.directive('response');        // { "1": "Robin Williams" }
+draft.directive('post');            // null
+draft.parent();                     // router.route('/')
+draft.parents();                    // [ router.route('/') ]
+draft.children();                   // [ ':id' ]
+draft.child('1');                   // router.route('/user/1')
+
+
+var draft           = router.route('/user/1');
+
+draft.id();                         // /users/1
+draft.path;                         // /users/1
+draft.raw_path;                     // /users/:id
+draft.segments()                    // [ 'users', '1' ]
+draft.raw_segments()                // [ 'users', ':id' ]
+draft.params;                       // { "id": "1" }
+draft.raw                           // { "__response__": { "id": "&lt; path.id", "name": "Robin Williams", ... } }
+draft.router;                       // Router Object
+
+draft.directives();                 // { "response": { "id": "&lt; path.id", "name": "Robin Williams", ... } }
+draft.parent();                     // router.route('/user')
+draft.parents();                    // [ router.route('/user'), router.route('/') ]
+draft.children();                   // []
+draft.child('anything');            // null
+
+// Relative routing
+var draft           = draft.route('../2');
+</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-7" class="outline-3">
+<h3 id="sec-1-7"><span class="section-number-3">1.7</span> Creating a Directive</h3>
+<div class="outline-text-3" id="text-1-7">
+<p>
+Directives are power behind ChaosRouter!  There is virtually no limit to what you can make a
+directive do.  Within a directive, there is access to all router resources and configurations.
+With that access you can program directives to do just about anything, even dynamically configure
+other directives.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">var chaosrouter      = require('chaosrouter');
+var router           = chaosrouter(&lt;config&gt;);
+
+router.directive(&lt;key / name&gt;, function(config) {
+    // 'this' is the Draft node
+    // 'config' is the value from this directive in the current Draft
+    // ... do things based on config
+
+    // this.next()                   to move onto the next directive
+    // return this.resolve(...)      to end here with result [...]
+    // return this.reject(...)       to end here with error [...]
+});
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-8" class="outline-3">
+<h3 id="sec-1-8"><span class="section-number-3">1.8</span> Creating a Module</h3>
+<div class="outline-text-3" id="text-1-8">
+<p>
+A module is simply an object with the name of the module, and a dictionary of directive names and
+functions.  The module name is the unique name that will be used to reference the module after it
+is loaded.  When ChaosRouter loads a module, it will call the export function passing itself as
+the first argument.  It is important to have access to the ChoasRouter module to have full
+control.  For instance, a module could load several other modules, or use the 'restuct-data' and
+'populater' modules that are loaded in the ChaosRouter module.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">module.exports = function(chaosrouter) {
+    return {
+	"__name__": &lt;module ID&gt;,
+	"__directives__": {
+	    &lt;directive name&gt;: function(&lt;config&gt;) {
+		...
+	    },
+	    &lt;directive name&gt;: function(&lt;config&gt;) {
+		...
+	    },
+	    ...
+	},
+	"__init__": function() {
+	    ...
+	},
+	"__enable__": function(method) {
+	    ...
+	},
+	"__disable__": function(method) {
+	    ...
+	},
+	&lt;key&gt;: &lt;value&gt;,
+	...
+    };
+};
+</pre>
+</div>
+
+<p>
+You can access anything inside the module using
+</p>
+<div class="org-src-container">
+
+<pre class="src src-javascript">var module           = router.module(&lt;module ID&gt;);
+module.&lt;key&gt; == &lt;value&gt;
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Ubuntu</p>
+<p class="date">Created: 2017-10-02 Mon 00:51</p>
+<p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
