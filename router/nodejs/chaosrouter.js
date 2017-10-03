@@ -25,14 +25,6 @@ function is_dict(d) {
 	return false;
     }
 }
-function is_iterable(d) {
-    try {
-	for( var i in d ) continue;
-    } catch(err) {
-	return false;
-    }
-    return true;
-}
 
 var basepath	= '.';
 function replaceFileRefs( struct, parents, resp ) {
@@ -81,6 +73,14 @@ function replaceFileRefs( struct, parents, resp ) {
     }
     return is_flat ? struct[0] : struct;
 }
+function loadConfigFile(filepath) {
+    log.trace("Loading config from file", filepath);
+    var config	= JSON.parse( fs.readFileSync(filepath) );
+    config 	= replaceFileRefs( config, null, function(err) {
+	throw Error(err.error+': '+err.message);
+    });
+    return config;
+}
 function getDirectives(data) {
     var directives	= {};
     for (var k in data) {
@@ -89,7 +89,6 @@ function getDirectives(data) {
 	     && noprefix.indexOf(Router.directiveSuffix) === (noprefix.length - Router.directiveSuffix.length)) {
 	    var name		= k.slice(Router.directivePrefix.length, -Router.directiveSuffix.length);
 	    directives[name]	= data[k];
-	    // delete data[k];
 	}
     }
     return directives;
@@ -115,24 +114,16 @@ function getVariableKey(config) {
     });
     return vkey;
 }
-function loadConfigFile(filepath) {
-    log.trace("Loading config from file", filepath);
-    var config	= JSON.parse( fs.readFileSync(filepath) );
-    config 	= replaceFileRefs( config, null, function(err) {
-	throw Error(err.error+': '+err.message);
-    });
-    return config;
-}
 function run_sequence(list, fn, index) {
     if (index === undefined)
 	index		= 0;
     
     if (list[index] === undefined) {
 	var directives	= list.map(function(fn) {return fn.name;});
-	throw Error("End of method chain with no response (undefined index: "+index+", list length: "+list.length+", directives: "+directives.join(', ')+")");
+	throw Error("End of directive list with no response (undefined index: "+index+", list length: "+list.length+", directives: "+directives.join(', ')+")");
 		   }
-    if (typeof list[index] !== 'function')
-	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
+    // if (typeof list[index] !== 'function')
+    // 	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
 
     fn(list[index], function() {
 	run_sequence(list, fn, index+1);
@@ -176,6 +167,13 @@ function Router(data, opts) {
     else
 	throw new Error("Unrecognized data type: "+typeof data);
 }
+Router.directivePrefix		= '__';
+Router.directiveSuffix		= '__';
+Router.ENABLE_ALL		= 0;
+Router.ENABLE_SELECTION		= 1;
+Router.ENABLE_EXCULSION		= 2;
+Router.DISABLE_SELECTION	= 3;
+
 Router.prototype.root	= function() {
     if (this.configfile) {
 	this.config		= loadConfigFile( this.configfile );
@@ -237,10 +235,6 @@ Router.prototype.modules	= function() {
 	}
     }
 }
-Router.ENABLE_ALL		= 0;
-Router.ENABLE_SELECTION	= 1;
-Router.ENABLE_EXCULSION	= 2;
-Router.DISABLE_SELECTION	= 3;
 Router.prototype.module	= function(name, config) {
     if (typeof config === 'number') {
 	log.trace("Converting config number", config, "to config object");
@@ -264,9 +258,9 @@ Router.prototype.module	= function(name, config) {
 	}
     }
     
-    var self		= this;
-    var module		= __modules__[name];
-    var directives	= module.__directives__;
+    var self			= this;
+    var module			= __modules__[name];
+    var directives		= module.__directives__;
     
     if (typeof config === 'object') {
 	log.debug("Load module", name, "with config", config);
@@ -289,7 +283,7 @@ Router.prototype.module	= function(name, config) {
 	}
 	else if ( Array.isArray(config.disable) ) {
 	    config.disable.forEach(function(name) {
-		self.directive(name, directives[name], false);
+		self.directive(name, directives[name]);
 	    });
 	}
 	else {
@@ -302,17 +296,24 @@ Router.prototype.module	= function(name, config) {
 
     return module;
 };
-Router.directivePrefix		= '__';
-Router.directiveSuffix		= '__';
-Router.prototype.__directives__	= {};
-Router.prototype.directive		= function (name, fn) {
-    if (name === undefined || fn === undefined)
+Router.prototype.__directives__	= { "before": {}, "runtime": {}, "after": {} };
+Router.prototype.directive	= function (name, fns) {
+    if (name === undefined || fns === undefined)
 	throw Error("Must give a name and a callback when registering directives");
 
-    this.__directives__[name]		= fn;
+    if (typeof fns === 'function')
+	this.__directives__.runtime[name]	= fns;
+    else {
+	if (fns.__before__)
+	    this.__directives__.before[name]	= fns.__before__;
+	if (fns.__runtime__)
+	    this.__directives__.runtime[name]	= fns.__runtime__;
+	if (fns.__after__)
+	    this.__directives__.after[name]	= fns.__after__;
+    }
 }
 Router.prototype.set_input		= function(input) {
-    if (!is_iterable(input))
+    if (!is_dict(input))
 	return false;
     
     for ( var name in input )
@@ -336,7 +337,6 @@ function Draft(parent, key) {
     self.vkey			= null;
     self.input			= {};
 
-    // If no 'key' is given, we are creating the root node.  Parent should be the Router Object.
     if (parent instanceof Router) {
 	self.config		= parent.config;
 	self.params		= {};
@@ -387,7 +387,16 @@ function Draft(parent, key) {
     self.raw			= self.config;
     self.__directives__		= getDirectives(self.config);
     
-    log.debug("New Draft object with: ("+(typeof parent)+")", self.path);
+    log.debug("New Draft object with: ("+(typeof parent)+")", self.path, self.__directives__);
+
+    var directives		= self.router.__directives__.before;
+    self.awaitInit		= self.process_directives(directives);
+}
+Draft.prototype.ready		= function(f,r) {
+    var self			= this;
+    return self.awaitInit.then(function() {
+	f.call(self);
+    },r);
 }
 Draft.prototype.id		= function() {
     return this.path;
@@ -445,61 +454,93 @@ Draft.prototype.children	= function(key) {
 Draft.prototype.directives	= function(name) {
     if (name)
 	return this.directive(name);
-    return this.__directives__;
+    return Object.assign({}, this.__directives__);
 }
-Draft.prototype.directive		= function (name, config) {
+Draft.prototype.directive	= function (name, config) {
     if (config) {
 	this.__directives__[name]	= config;
     }
     return this.__directives__[name] || null;
 }
 Draft.prototype.set_input	= function(input) {
-    if (!is_iterable(input)) {
+    if (!is_dict(input)) {
 	return false;
     }
     for ( var name in input )
 	this.input[name] = input[name];
 }
-Draft.prototype.runDirectives	= function() {
+Draft.prototype.process_directives	= function(directivesDict) {
     var self			= this;
-    var directivesMap		= this.router.__directives__;
 
-    var directives		= Object.keys(directivesMap).map(function(k) {
-	var directive		= directivesMap[k];
-	directive.key		= k;
-	return directive;
+    var directives		= Object.keys(directivesDict).map(function(k) {
+	directivesDict[k].key	= k;
+	return directivesDict[k];
     });
-
+    
     return new Promise(function(f,r) {
 	try {
+	    if (directives.length === 0)
+		log.warn("Directives array is empty, source directives object:", directivesDict);
+	    
+	    directives.push('end');
+	    
 	    run_sequence(directives, function(directive, next) {
-		var config		= self.directive(directive.key);
+		if (directive === 'end')
+		    return f('End of directive chain');
+
+		var config	= self.directive(directive.key);
 		if (config === null) {
 		    log.trace("For path", self.path, "skipping directive", directive.key);
 		    next();
 		}
 		else {
 		    log.trace("For path", self.path, "run directive '"+directive.key+"' with config", config);
-		    self.next		= next;
+		    self.next	= next;
 		    directive.call(self, config);
 		}
 	    });
 	}
 	catch (err) {
 	    console.error("Caught Promise snuffing error", err);
+	    r({
+		"error": err.name,
+		"message": err.message,
+	    });
 	}
     });
-}
+};
 Draft.prototype.execute		= function(input) {
+    var self			= this;
+    log.debug("Execute Draft", self.path, "with input", input);
+    
     if (input) this.set_input(input);
 
-    var self		= this;
     return new Promise(function(f,r) {
-	self.resolve	= f;
-	self.reject	= r;
-	self.runDirectives().then(function(result) {
-	    f(result);
-	}, f).catch(r);
+	self.resolve		= f;
+	self.reject		= r;
+
+	// log.error("Router directives", self.router.__directives__);
+	// throw Error("Router Directives");
+	
+	log.info("Awaiting 'before' directives");
+	self.awaitInit.then(function() {
+	    
+	    var directives		= self.router.__directives__.runtime;
+	    log.info("Awaiting directives", directives);
+	    self.process_directives(directives).then(function(result) {
+		
+		log.warn("Result from runtime directives", result);
+		self.data		= result;
+		
+		var directives	= self.router.__directives__.after;
+		log.info("Awaiting 'after' directives", directives);
+		self.process_directives(directives).then(function() {
+		    
+		    f(self.data);
+		    
+		},r).catch(r);
+	    },r).catch(r);
+	},r).catch(r);
     });
 }
 

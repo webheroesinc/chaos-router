@@ -32,33 +32,33 @@ var crbase		= router.module('chaosrouter-base');
 var crsql		= router.module('chaosrouter-sql');
 
 crbase.methods({
-    "fail_false": function(args, _, validate) {
-	validate(false);
+    "fail_false": function() {
+	this.fail(false);
     },
-    "Validate": {
-	"pass": function(args, _, validate) {
-	    validate(true);
+    "Rules": {
+	"pass": function() {
+	    this.pass();
 	}
     },
     "TestValidationClass": {
-	"required_not_empty": function(args, _, validate) {
-	    validate({
+	"required_not_empty": function() {
+	    this.fail({
 		error: "Data Required",
 		message: "missing required data"
 	    })
 	}
     },
-    "hello_world": function(args, resp) {
-	resp({
+    "hello_world": function(message) {
+	this.resolve({
 	    "title": "Hello World",
-	    "message": this.input.message
+	    "message": message
 	});
     },
     "ParentClass": {
-	"heythere": function(args, resp) {
-	    resp({
+	"heythere": function(data) {
+	    this.resolve({
 		title: "Parent Class Test",
-		message: this.input.message
+		message: data.message
 	    })
 	}
     }
@@ -217,7 +217,7 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should pass validation", function(done) {
-	    var draft		= router.route("/get/test_validate/1");
+	    var draft		= router.route("/get/test_rules/1");
 	    draft.execute().then(function(data) {
 		log.warn("Data:", data);
 		expect(data).to.be.an("object");
@@ -230,19 +230,19 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should fail validation", function(done) {
-	    var draft		= router.route("/get/test_validate/fail_false");
+	    var draft		= router.route("/get/test_rules/fail_false");
 	    draft.execute().then(function(data) {
 		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.error).to.be.a("string");
 		expect(data.message).to.be.a("string");
-		expect(data.error).to.equal("Failed Validation");
+		expect(data.error).to.equal("Failed Validation Rule");
 		done();
 	    }, e).catch(e);
 	});
 	
 	it("should fail class method validation", function(done) {
-	    var draft		= router.route("/get/test_validate/class_method");
+	    var draft		= router.route("/get/test_rules/class_method");
 	    draft.execute().then(function(data) {
 		log.warn("Data:", data);
 		expect(data).to.be.an("object");
@@ -253,7 +253,7 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should fail on string evaluation", function(done) {
-	    var draft		= router.route("/get/test_validate/string");
+	    var draft		= router.route("/get/test_rules/string");
 	    draft.execute().then(function(data) {
 		log.warn("Data:", data);
 		expect(data).to.be.an("object");
@@ -276,12 +276,12 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should fail validation on parent level", function(done) {
-	    var draft		= router.route("/get/test_validate/multi_level/level_two");
+	    var draft		= router.route("/get/test_rules/multi_level/level_two");
 	    draft.execute().then(function(data) {
 		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
-		expect(data.message).to.equal("Did not pass validation config '= Failed at level 1'");
+		expect(data.message).to.equal("Did not pass rule config '= Failed at level 1'");
 		done();
 	    }, e).catch(e);
 	});
@@ -295,84 +295,88 @@ describe("ChaosRouter", function() {
 	    
 	    expect(draft).to.be.an("object");
 
-	    log.info("Testing Draft.key");
-	    expect(draft.key).to.be.a("string");
-	    expect(draft.key).to.equal("1");
+	    draft.ready(function() {
+		// There is some kind of glitch that makes draft undefined here.  Possibly a problem
+		// in Mocha, but we can bypass it with this
+		var draft	= this;
+		
+		log.info("Testing Draft.key");
+		expect(draft.key).to.be.a("string");
+		expect(draft.key).to.equal("1");
 
-	    log.info("Testing Draft.vkey");
-	    expect(draft.vkey).to.be.a("string");
-	    expect(draft.vkey).to.equal(":id");
+		log.info("Testing Draft.vkey");
+		expect(draft.vkey).to.be.a("string");
+		expect(draft.vkey).to.equal(":id");
 
-	    log.info("Testing Draft.id()");
-	    expect(draft.id()).to.be.a("string");
-	    expect(draft.id()).to.equal("/get/people/1");
+		log.info("Testing Draft.id()");
+		expect(draft.id()).to.be.a("string");
+		expect(draft.id()).to.equal("/get/people/1");
 
-	    log.info("Testing Draft.path");
-	    expect(draft.path).to.be.a("string");
-	    expect(draft.path).to.equal("/get/people/1");
-	    
-	    log.info("Testing Draft.raw_path");
-	    expect(draft.raw_path).to.be.a("string");
-	    expect(draft.raw_path).to.equal("/get/people/:id");
-	    
-	    log.info("Testing Draft.segments()");
-	    expect(draft.segments()).to.be.an("array");
-	    expect(draft.segments()).to.have.length(3);
-	    expect(draft.segments()[2]).to.equal("1");
-	    
-	    log.info("Testing Draft.raw_segments()");
-	    expect(draft.raw_segments()).to.be.an("array");
-	    expect(draft.raw_segments()).to.have.length(3);
-	    expect(draft.raw_segments()[2]).to.equal(":id");
-	    
-	    log.info("Testing Draft.params");
-	    expect(draft.params).to.be.an("object");
-	    expect(draft.params.id).to.equal("1");
-	    expect(Object.keys(draft.params)).to.have.length(1);
-	    
-	    log.info("Testing Draft.raw");
-	    expect(draft.raw).to.be.an("object");
-	    // When the "base" directive runs on Draft construction the length will be 5
-	    expect(Object.keys(draft.raw)).to.have.length(2);
-	    expect(draft.raw.__base__).to.equal("..");
-	    expect(draft.raw.__structure__).to.be.an("object");
-	    
-	    log.info("Testing Draft.config");
-	    expect(draft.config).to.be.an("object");
-	    expect(draft.config).to.equal(draft.raw);
-	    
-	    log.info("Testing Draft.directives()");
-	    expect(draft.directives()).to.be.an("object");
-	    // When the "base" directive runs on Draft construction the length will be 5
-	    expect(Object.keys(draft.directives())).to.have.length(2);
-	    expect(draft.directives().base).to.equal("..");
-	    expect(draft.directives().structure).to.be.an("object");
-	    
-	    log.info("Testing Draft.directive('__notexists__')");
-	    expect(draft.directive("__notexists__")).to.be.null;
-	    
-	    log.info("Testing Draft.parent()");
-	    expect(draft.parent()).to.be.an("object");
-	    expect(draft.parent().id()).to.be.a("string");
-	    expect(draft.parent().id()).to.equal("/get/people");
-	    
-	    log.info("Testing Draft.parents()");
-	    expect(draft.parents()).to.be.an("array");
-	    expect(draft.parents()).to.have.length(3);
-	    expect(draft.parents()[0]).to.equal(draft.parent());
+		log.info("Testing Draft.path");
+		expect(draft.path).to.be.a("string");
+		expect(draft.path).to.equal("/get/people/1");
+		
+		log.info("Testing Draft.raw_path");
+		expect(draft.raw_path).to.be.a("string");
+		expect(draft.raw_path).to.equal("/get/people/:id");
+		
+		log.info("Testing Draft.segments()");
+		expect(draft.segments()).to.be.an("array");
+		expect(draft.segments()).to.have.length(3);
+		expect(draft.segments()[2]).to.equal("1");
+		
+		log.info("Testing Draft.raw_segments()");
+		expect(draft.raw_segments()).to.be.an("array");
+		expect(draft.raw_segments()).to.have.length(3);
+		expect(draft.raw_segments()[2]).to.equal(":id");
+		
+		log.info("Testing Draft.params");
+		expect(draft.params).to.be.an("object");
+		expect(draft.params.id).to.equal("1");
+		expect(Object.keys(draft.params)).to.have.length(1);
+		
+		log.info("Testing Draft.raw");
+		expect(draft.raw).to.be.an("object");
+		expect(Object.keys(draft.raw)).to.have.length(2);
+		expect(draft.raw.__base__).to.equal("..");
+		expect(draft.raw.__structure__).to.be.an("object");
+		
+		log.info("Testing Draft.config");
+		expect(draft.config).to.be.an("object");
+		expect(draft.config).to.equal(draft.raw);
+		
+		log.info("Testing Draft.directives()");
+		expect(draft.directives()).to.be.an("object");
+		expect(Object.keys(draft.directives())).to.have.length(4);
+		expect(draft.directives().base).to.equal("..");
+		expect(draft.directives().structure).to.be.an("object");
+		
+		log.info("Testing Draft.directive('__notexists__')");
+		expect(draft.directive("__notexists__")).to.be.null;
+		
+		log.info("Testing Draft.parent()");
+		expect(draft.parent()).to.be.an("object");
+		expect(draft.parent().id()).to.be.a("string");
+		expect(draft.parent().id()).to.equal("/get/people");
+		
+		log.info("Testing Draft.parents()");
+		expect(draft.parents()).to.be.an("array");
+		expect(draft.parents()).to.have.length(3);
+		expect(draft.parents()[0]).to.equal(draft.parent());
 
-	    var draft		= draft.route("../../people");
-	    
-	    log.info("Testing Draft.child('create')");
-	    expect(draft.child("create")).to.be.an("object");
-	    expect(draft.child("create").id()).to.be.a("string");
-	    expect(draft.child("create").id()).to.equal("/get/people/create");
-	    
-	    log.info("Testing Draft.children");
-	    expect(draft.children()).to.be.an("array");
-	    expect(draft.children()).to.have.length(2);
-	    
-	    done();
+		var draft		= draft.route("../../people");
+		
+		log.info("Testing Draft.child('create')");
+		expect(draft.child("create")).to.be.an("object");
+		expect(draft.child("create").id()).to.be.a("string");
+		expect(draft.child("create").id()).to.equal("/get/people/create");
+		
+		log.info("Testing Draft.children");
+		expect(draft.children()).to.be.an("array");
+		expect(draft.children()).to.have.length(2);
+		
+		done();
+	    },e).catch(e);
 	});
 	
     });

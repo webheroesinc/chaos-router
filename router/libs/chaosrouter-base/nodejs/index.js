@@ -2,7 +2,7 @@ var bunyan		= require('bunyan');
 
 var log			= bunyan.createLogger({
     name: "ChaosRouter Base",
-    level: 'debug' // module.parent ? 'error' : 'trace'
+    level: 'trace' // module.parent ? 'error' : 'trace'
 });
 
 var fs			= require('fs');
@@ -25,7 +25,6 @@ function run_sequence(list, fn, index) {
     else
 	list[index](next);
 }
-
 function checkspace(args, error) {
     return function(value,f,r) {
 	if (value === true)
@@ -55,61 +54,80 @@ var __methods__		= {};
 module.exports = function(chaosrouter) {
     var restruct	= chaosrouter.restruct;
     var populater	= chaosrouter.populater;
+
+    function fillArguments(args, data) {
+	for (var i in args) {
+	    var arg		= args[i];
+	    var type		= typeof arg;
+	    if (type === 'string')
+		args[i]		= populater(data)(arg);
+	    else if(type === 'object' && arg !== null)
+		args[i]		= restruct(data, arg);
+	}
+	return args;
+    }
     
     return {
 	"__name__": "chaosrouter-base",
-	"__init__": function() {
+	"__init__": function(router) {
 	},
 	"__enable__": function(method) {
 	},
 	"__directives__": {
-	    "base": function (config) {
-		var self		= this;
+	    "base": {
+		"__before__": function (config) {
+		    var self		= this;
 
-		var node		= self;
-		var basepath	= config;
-		var fullpath	= basepath;
-		while (basepath) {
-		    var node	= node.route(basepath);
-		    var directives	= node.directives();
+		    var node		= self;
+		    var basepath	= config;
+		    var fullpath	= basepath;
+		    while (basepath) {
+			var node	= node.route(basepath);
+			var directives	= node.directives();
 
-		    delete directives.validate;
+			delete directives.rules;
 
-		    basepath	= directives.base;
-		    delete directives.base;
+			basepath	= directives.base;
+			delete directives.base;
 
-		    for (var name in directives) {
-			log.trace("Copying directive", name, "from path", fullpath);
-			self.directive(name, directives[name]);
+			log.debug("Copy directives", Object.keys(directives));
+			for (var name in directives) {
+			    if (self.directive(name))
+				log.trace("NOT Copying directive", name, ", directive already exists in", self.path);
+			    else {
+				var conf	= directives[name];
+				log.trace("Copying directive", name, "with config", conf, "from path", fullpath);
+				self.directive(name, conf);
+			    }
+			}
+
+			if (basepath)
+			    fullpath	= fullpath+"/"+basepath;
 		    }
-
-		    if (basepath)
-			fullpath	= fullpath+"/"+basepath;
-		}
-		self.next();
+		    self.next();
+		},
 	    },
-	    "validate": function (config) {
+	    "rules": function (config) {
 		var self		= this;
 
-		var validates	= [];
-		// Gather parent validations and add to
+		var rules		= [];
 		var parents		= this.parents();
 
 		parents.reverse().push(this);
 		parents.forEach(function(parent) {
-		    var conf	= parent.directive('validate');
+		    var conf		= parent.directive('rules');
 		    if ( Array.isArray(conf) )
 			for( var i in conf )
-			    validates.push( conf[i] );
+			    rules.push( conf[i] );
 		});
 
-		var validations	= validates.map(function(args) {
+		var validations		= rules.map(function(args) {
 		    
 		    var error = {
-			"error": "Failed Validation",
-			"message": "Did not pass validation config '"+args+"'",
+			"error": "Failed Validation Rule",
+			"message": "Did not pass rule config '"+args+"'",
 		    };
-		    var check	= checkspace(args, error);
+		    var check		= checkspace(args, error);
 		    
 		    return function(next) {
 			if (typeof args === 'string') {
@@ -122,25 +140,31 @@ module.exports = function(chaosrouter) {
 				return self.reject(error)
 			    }
 			    
-			    var done	= function() {
-				throw Error("Validation methods should not call the resolve() method");
+			    self.pass	= function(result) {
+				next();
 			    };
-			    var validate	= function(result) {
+			    self.fail	= function(result) {
 				check(result, next, self.resolve);
 			    };
 			    var method	= args.shift();
-			    var cmd		= eval("__methods__."+method);
-			    
-			    cmd.call(self, args, done, validate);
+			    var cmd	= populater(__methods__)("< "+method);
+			    var data	= fillArguments(args, self);
+
+			    if (typeof cmd === 'function')
+				cmd.apply(self, data);
+			    else
+				throw Error("Method '"+method+"' @ "+self.raw_path+" in __rules__ directive is not a function");
 			}
 			else {
 			    log.error("Args object", args);
-			    throw Error("Bad Validation Config: don't know what to do with type '"+(typeof config)+"'");
+			    throw Error("Bad Rule Config: don't know what to do with type '"+(typeof config)+"'");
 			}
 		    };
 		});
 
 		validations.push(function() {
+		    delete self.pass;
+		    delete self.fail;
 		    self.next();
 		});
 		run_sequence(validations);
@@ -148,33 +172,31 @@ module.exports = function(chaosrouter) {
 	    "tasks": function (config) {
 		var self		= this;
 
-		var tasks	= config.map(function(args) {
+		var tasks		= config.map(function(args) {
 		    
 		    var error = {
 			"error": "Failed Task",
 			"message": "An error occurred on task '"+args+"'",
 		    };
-		    var check	= checkspace(args, error);
 		    
 		    return function(next) {
 			if (typeof args === 'string') {
-			    var result	= populater(self)(args);
-			    return check(result, next, self.resolve);
+			    return self.resolve(populater(self)(args));
 			}
 			else if(Array.isArray(args)) {
 			    if (args.length === 0) {
-				log.error("Got here, what's the hold up?");
 				error.message	= "Array is empty";
 				return self.reject(error)
 			    }
-			    
-			    var validate	= function(result) {
-				check(result, next, self.resolve);
-			    };
+
 			    var method	= args.shift();
-			    var cmd		= eval("__methods__."+method);
-			    
-			    cmd.call(self, args, self.resolve, validate);
+			    var cmd	= populater(__methods__)("< "+method);
+			    var data	= fillArguments(args, self);
+
+			    if (typeof cmd === 'function')
+				cmd.apply(self, data);
+			    else
+				throw Error("Method '"+method+"' @ "+self.raw_path+" in __rules__ directive is not a function");
 			}
 			else {
 			    log.error("Args object", args);

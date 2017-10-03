@@ -65,12 +65,14 @@
 	},
 	"test_method": {
 	    "__tasks__": [
-		["hello_world"]
+		["hello_world", "< input.message"]
 	    ]
 	},
 	"parent_class_test": {
 	    "__tasks__": [
-		["ParentClass.heythere"]
+		["ParentClass.heythere", {
+		    "message": "< input.message"
+		}]
 	    ]
 	},
 	"responses": {
@@ -89,10 +91,10 @@
 		"__response__": "< input.name"
 	    }
 	},
-	"test_validate": {
+	"test_rules": {
 	    ":id": {
-		"__validate__": [
-		    ["Validate.pass", "< params.id"]
+		"__rules__": [
+		    ["Rules.pass", "< params.id"]
 		],
 		"__sql__": true,
 		"__table__": "people",
@@ -109,37 +111,37 @@
 		}
 	    },
 	    "fail_false": {
-		"__validate__": [
+		"__rules__": [
 		    ["fail_false", "hello", "world"]
 		]
 	    },
 	    "fail_message": {
-		"__validate__": [
+		"__rules__": [
 		    ["fail_message", "hello", "world"]
 		]
 	    },
 	    "fail_error": {
-		"__validate__": [
+		"__rules__": [
 		    ["fail_error", "hello", "world"]
 		]
 	    },
 	    "class_method": {
-		"__validate__": [
+		"__rules__": [
 		    ["TestValidationClass.required_not_empty", "", "= []"]
 		]
 	    },
 	    "multi_level": {
-		"__validate__": [
+		"__rules__": [
 		    "= Failed at level 1"
 		],
 		"level_two": {
-		    "__validate__": [
+		    "__rules__": [
 			"= Failed at level 2"
 		    ]
 		}
 	    },
 	    "string": {
-		"__validate__": [
+		"__rules__": [
 		    "= true",
 		    "= 'This is not a pass'",
 		    "= false"
