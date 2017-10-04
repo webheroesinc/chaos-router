@@ -1,14 +1,12 @@
 var bunyan		= require('bunyan');
-
-var log			= bunyan.createLogger({
-    name: "ChaosRouter SQL",
-    level: 'debug' // module.parent ? 'error' : 'trace'
-});
+var log			= bunyan.createLogger({name: "ChaosRouter SQL",level: 'fatal'});
 
 module.exports = function(chaosrouter) {
     var restruct	= chaosrouter.restruct;
     var populater	= chaosrouter.populater;
-    
+
+    log.level(chaosrouter.log_level());
+
     return {
 	"__name__": "chaosrouter-sql",
 	"__directives__": {

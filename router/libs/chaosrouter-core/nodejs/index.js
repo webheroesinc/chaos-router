@@ -1,9 +1,5 @@
 var bunyan		= require('bunyan');
-
-var log			= bunyan.createLogger({
-    name: "ChaosRouter Base",
-    level: 'trace' // module.parent ? 'error' : 'trace'
-});
+var log			= bunyan.createLogger({name: "ChaosRouter Core",level: 'fatal'});
 
 var fs			= require('fs');
 
@@ -12,7 +8,7 @@ function run_sequence(list, fn, index) {
 	index		= 0;
 
     if (list[index] === undefined)
-	throw Error("Chaosrouter Base: End of method chain with no response");
+	throw Error("Chaosrouter Core: End of method chain with no response");
     if (typeof list[index] !== 'function')
 	throw Error("run_sequence list item is not a function.  Type '"+(typeof list[index])+"' given");
 
@@ -55,6 +51,8 @@ module.exports = function(chaosrouter) {
     var restruct	= chaosrouter.restruct;
     var populater	= chaosrouter.populater;
 
+    log.level(chaosrouter.log_level());
+
     function fillArguments(args, data) {
 	for (var i in args) {
 	    var arg		= args[i];
@@ -68,7 +66,7 @@ module.exports = function(chaosrouter) {
     }
     
     return {
-	"__name__": "chaosrouter-base",
+	"__name__": "chaosrouter-core",
 	"__init__": function(router) {
 	},
 	"__enable__": function(method) {

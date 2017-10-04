@@ -1,15 +1,11 @@
-var bunyan	= require('bunyan');
+var bunyan		= require('bunyan');
+var log			= bunyan.createLogger({name: "ChaosRouter",level: 'fatal'});
 
-var log		= bunyan.createLogger({
-    name: "ChaosRouter",
-    level: 'trace' // module.parent ? 'error' : 'trace'
-});
-
-var Promise	= require('promise');
-var restruct	= require('restruct-data');
-var populater	= restruct.populater;
-var fs		= require('fs');
-var util	= require('util');
+var Promise		= require('promise');
+var restruct		= require('restruct-data');
+var populater		= restruct.populater;
+var fs			= require('fs');
+var util		= require('util');
 
 function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
@@ -260,7 +256,14 @@ Router.prototype.module	= function(name, config) {
     
     var self			= this;
     var module			= __modules__[name];
+
+    if (module === undefined)
+	throw Error("Module '"+name+"' has not been loaded");
+    
     var directives		= module.__directives__;
+    
+    if (config === true)
+	config			= {enable: true};
     
     if (typeof config === 'object') {
 	log.debug("Load module", name, "with config", config);
@@ -509,7 +512,7 @@ Draft.prototype.process_directives	= function(directivesDict) {
 	}
     });
 };
-Draft.prototype.execute		= function(input) {
+Draft.prototype.proceed		= function(input) {
     var self			= this;
     log.debug("Execute Draft", self.path, "with input", input);
     
@@ -544,6 +547,7 @@ Draft.prototype.execute		= function(input) {
     });
 }
 
+
 var __modules__		= {};
 
 function ChaosRouter(data, opts) {
@@ -562,5 +566,16 @@ ChaosRouter.modules	= function() {
 	modules.push( ChaosRouter.module(arguments[i]) );
     }
     return modules;
+}
+ChaosRouter.log_level	= function(level) {
+    if (level)  {
+	if ( typeof level === 'string' ) {
+	    if ( typeof bunyan[level.toUpperCase()] === 'number' )
+		level	= bunyan[level.toUpperCase()]
+	}
+	log.level( level );
+    }
+
+    return log.level();
 }
 module.exports		= ChaosRouter;
