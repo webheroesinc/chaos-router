@@ -15,9 +15,9 @@
    it changed.
    
    #+BEGIN_SRC javascript
-   var chaosrouter	= require('chaosrouter');
+   var chaosrouter      = require('chaosrouter');
 
-   var router		= chaosrouter({
+   var router           = chaosrouter({
        "api": {
            "helloworld": {
                "__response__": "Hello World!"
@@ -26,14 +26,14 @@
    });
 
    // Load JSON from a file
-   var router		= chaosrouter('./routes.json');
+   var router           = chaosrouter('./routes.json');
    #+END_SRC
 
 
 ** Loading Modules
 
    #+BEGIN_SRC javascript
-   var chaosrouter = require('chaosrouter');
+   var chaosrouter      = require('chaosrouter');
 
    // Load several modules
    chaosrouter.modules('module1', 'module2', ...);
@@ -63,6 +63,7 @@
        'module1': true,
    });
    router.module('module1', router.ENABLE_ALL);
+   router.module('module1', true);
 
 
    // Enable specific directives
@@ -121,7 +122,7 @@
    Documentation.
 
    #+BEGIN_SRC javascript
-   var chaosrouter	= require('chaosrouter');
+   var chaosrouter      = require('chaosrouter');
 
    var router = chaosrouter({
        "api": {
@@ -136,7 +137,7 @@
    });
 
    // Get the Draft Node for route path /api/helloworld
-   var draft		= router.route('/api/helloworld');
+   var draft            = router.route('/api/helloworld');
 
    # draft.run().then(...
    # draft.execute().then(...
@@ -176,47 +177,46 @@
     var draft           = router.route('/user');
 
     draft.ready(function() {
-        draft.id();                         // /users
-        draft.path;                         // /users
-        draft.raw_path;                     // /users
-        draft.segments()                    // [ 'users' ]
-        draft.raw_segments()                // [ 'users' ]
-        draft.params;                       // {}
-        draft.raw                           // { "__pre__": true, "__response__": { ... }, ":id": { ... } }
-        draft.router;                       // Router Object
+        draft.id();                     // /users
+        draft.path;                     // /users
+        draft.raw_path;                 // /users
+        draft.segments()                // [ 'users' ]
+        draft.raw_segments()            // [ 'users' ]
+        draft.params;                   // {}
+        draft.raw                       // { "__pre__": true, "__response__": { ... }, ":id": { ... } }
+        draft.router;                   // Router Object
         
-        draft.directives();                 // { "pre": true, "response": { "1": "Robin Williams" } }
-        draft.directive('response');        // { "1": "Robin Williams" }
-        draft.directive('post');            // null
-        draft.parent();                     // router.route('/')
-        draft.parents();                    // [ router.route('/') ]
-        draft.children();                   // [ ':id' ]
-        draft.child('1');                   // router.route('/user/1')
+        draft.directives();             // { "pre": true, "response": { "1": "Robin Williams" } }
+        draft.directive('response');    // { "1": "Robin Williams" }
+        draft.directive('post');        // null
+        draft.parent();                 // router.route('/')
+        draft.parents();                // [ router.route('/') ]
+        draft.children();               // [ ':id' ]
+        draft.child('1');               // router.route('/user/1')
     });
 
 
     var draft           = router.route('/user/1');
 
     draft.ready(function() {
-        draft.id();                         // /users/1
-        draft.path;                         // /users/1
-        draft.raw_path;                     // /users/:id
-        draft.segments()                    // [ 'users', '1' ]
-        draft.raw_segments()                // [ 'users', ':id' ]
-        draft.params;                       // { "id": "1" }
-        draft.raw                           // { "__response__": { "id": "< path.id", "name": "Robin Williams", ... } }
-        draft.router;                       // Router Object
+        draft.id();                     // /users/1
+        draft.path;                     // /users/1
+        draft.raw_path;                 // /users/:id
+        draft.segments()                // [ 'users', '1' ]
+        draft.raw_segments()            // [ 'users', ':id' ]
+        draft.params;                   // { "id": "1" }
+        draft.raw                       // { "__response__": { "id": "< path.id", "name": "Robin Williams", ... } }
+        draft.router;                   // Router Object
     
-        draft.directives();                 // { "response": { "id": "< path.id", "name": "Robin Williams", ... } }
-        draft.parent();                     // router.route('/user')
-        draft.parents();                    // [ router.route('/user'), router.route('/') ]
-        draft.children();                   // []
-        draft.child('anything');            // null
+        draft.directives();             // { "response": { "id": "< path.id", "name": "Robin Williams", ... } }
+        draft.parent();                 // router.route('/user')
+        draft.parents();                // [ router.route('/user'), router.route('/') ]
+        draft.children();               // []
+        draft.child('anything');        // null
     });
 
     // Relative routing
     var draft           = draft.route('../2');
-
     #+END_SRC
     
 
@@ -291,7 +291,7 @@
 
    You can access anything inside the module using
    #+BEGIN_SRC javascript
-   var module		= router.module(<module ID>);
-   module.<key1>; 	// <value1>
-   module.<key2>(); 	// <value2>
+   var module           = router.module(<module ID>);
+   module.<key1>;       // <value1>
+   module.<key2>();     // <value2>
    #+END_SRC

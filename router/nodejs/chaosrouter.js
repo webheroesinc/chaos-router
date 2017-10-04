@@ -170,6 +170,8 @@ Router.ENABLE_SELECTION		= 1;
 Router.ENABLE_EXCULSION		= 2;
 Router.DISABLE_SELECTION	= 3;
 
+Router.prototype.__directives__	= { "before": {}, "runtime": {}, "after": {} };
+
 Router.prototype.root	= function() {
     if (this.configfile) {
 	this.config		= loadConfigFile( this.configfile );
@@ -299,7 +301,6 @@ Router.prototype.module	= function(name, config) {
 
     return module;
 };
-Router.prototype.__directives__	= { "before": {}, "runtime": {}, "after": {} };
 Router.prototype.directive	= function (name, fns) {
     if (name === undefined || fns === undefined)
 	throw Error("Must give a name and a callback when registering directives");

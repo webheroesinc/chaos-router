@@ -23,8 +23,6 @@ chaosrouter.modules( '../../router/libs/chaosrouter-core/nodejs/index.js',
 
 var router		= chaosrouter('../../routes.json');
 
-// router.modules('chaosrouter-core', 'chaosrouter-sql');
-
 var crcore		= router.module('chaosrouter-core', true);
 var crsql		= router.module('chaosrouter-sql', true);
 
