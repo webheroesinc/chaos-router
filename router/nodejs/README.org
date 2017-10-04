@@ -1,6 +1,11 @@
 
 
 * ChaosRouter Documentation
+  
+  [[https://img.shields.io/travis/webheroesinc/chaos-router/feature-1.0.0.svg]]
+  [[https://img.shields.io/npm/v/chaosrouter.svg]]
+  [[https://img.shields.io/github/tag/webheroesinc/chaos-router.svg]]
+  [[https://img.shields.io/maintenance/yes/2017.svg]]
 
 ** Install
 

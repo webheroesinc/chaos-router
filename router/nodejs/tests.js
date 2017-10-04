@@ -375,6 +375,10 @@ describe("ChaosRouter", function() {
 	});
 	
     });
+
+    after(function() {
+	knex.destroy();
+    });
 });
 
 // test_endpoint("/get/trigger/400", null, function (result) {

@@ -1,10 +1,10 @@
 {
   "name": "chaosrouter",
   "version": "1.0.0",
-  "description": "ERROR: No README data found!",
+  "description": "Customizable, cross platform, web server routing framework",
   "main": "chaosrouter.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "make tests"
   },
   "author": {
     "name": "Matthew Brisebois"
@@ -26,7 +26,8 @@
   "devDependencies": {
     "chai": "^4.1.2",
     "knex": "^0.9.0",
+    "mocha": "^4.0.0",
     "sqlite3": "^3.1.11"
   },
-  "readme": "ERROR: No README data found!"
+  "readme": "README.md"
 }
