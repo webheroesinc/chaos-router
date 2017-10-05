@@ -1,6 +1,6 @@
 {
   "name": "chaosrouter",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Customizable, cross platform, web server routing framework",
   "main": "chaosrouter.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "author": {
     "name": "Matthew Brisebois"
   },
-  "license": "GPLv3",
+  "license": "",
   "repository": {
     "type": "git",
     "url": "git@github.com:webheroesinc/chaos-router.git"

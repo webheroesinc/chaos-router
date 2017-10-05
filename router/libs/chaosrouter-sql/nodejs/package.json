@@ -1,13 +1,22 @@
 {
   "name": "chaosrouter-sql",
   "version": "0.1.0",
-  "description": "",
+  "description": "Chaos-Router Module - SQL directives",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": {
+    "name": "Matthew Brisebois"
+  },
+  "license": "",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:webheroesinc/chaos-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/webheroesinc/chaos-router/issues"
+  },
   "dependencies": {},
   "devDependencies": {
     "bunyan": "^1.8.12"
