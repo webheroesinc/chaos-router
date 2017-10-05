@@ -1,126 +1,59 @@
+var bunyan		= require('bunyan');
+var log			= bunyan.createLogger({name: "ChaosRouter Tests",level: 'fatal'});
 
-var extend		= require('util')._extend;
 var fs			= require('fs');
-
-var Promise		= require('promise');
+var knexlib		= require('knex')
 var chaosrouter		= require('./chaosrouter.js');
-var fill		= chaosrouter.populater;
-var restruct		= chaosrouter.restruct;
-var knex		= require('knex')({
+var expect		= require('chai').expect;
+
+var e			= (e) => log.error(e);
+
+var knex		= knexlib({
     client: 'sqlite',
     connection: {
 	filename: '../../testing.sqlite'
     }
 });
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
-var bunyan	= require('bunyan');
-var log		= bunyan.createLogger({
-    name: "ChaosRouter Tests",
-    level: 'debug'
-});
 
-var router	= chaosrouter('../../routes.json', {
-    defaultExec: function (args, resp) {
-	var knex	= this.args.db;
-	var q		= knex.select();
+log.level(chaosrouter.log_level('error'));
 
-	var table	= this.directives['table'];
-	var where	= this.directives['where'];
-	var joins	= this.directives['joins'] || [];
-	var columns	= this.directives['columns'] || [];
-	var struct	= this.directives['structure'];
+chaosrouter.modules( '../../router/libs/chaosrouter-core/nodejs/index.js',
+		     '../../router/libs/chaosrouter-sql/nodejs/index.js' );
 
-	q.from(table);
-	
-	for (var i in columns) {
-    	    if (Array.isArray(columns[i]))
-    		columns[i]	= columns[i].join(' as ');
-    	    q.column(columns[i]);
-	}
-	for (var i=0; i<joins.length; i++) {
-    	    var join	= joins[i];
-    	    var t	= join[0];
-    	    var c1	= join[1].join('.');
-    	    var c2	= join[2].join('.');
-    	    q.leftJoin(knex.raw(t), c1, c2);
-	}
-	
-	if (where)
-    	    q.where( knex.raw(fill(where, this.args)) );
+var router		= chaosrouter('../../routes.json');
 
-	// log.debug("Query: \n"+q.toString());
+var crcore		= router.module('chaosrouter-core', true);
+var crsql		= router.module('chaosrouter-sql', true);
 
-	q.then(function(result) {
-	    var result	= struct === undefined
-	    	? result
-	    	: restruct(result, struct);
-            resp(result);
-	}, resp).catch(resp);
-    }
-});
-router.directive('response', function (response, next, resp) {
-    if ( typeof response === "string" ) {
-	response		= fill(response, this.args);
-	if ( typeof response === "string" ) {
-	    if(! fs.existsSync(response) ) {
-		return resp({
-		    error: "Invalid File",
-		    message: "The response file was not found"
-		});
-	    }
-	    response		= fs.readFileSync( response, 'utf8' );
-	    try {
-		response	= JSON.parse(response)
-	    } catch(err) {
-		return resp({
-		    error: "Invalid File",
-		    message: "The response file was not valid JSON"
-		});
-	    }
-	}
-	else {
-	    return resp(response);
-	}
-    }
-    resp(restruct(this.args, response));
-});
-router.directive('structure_update', function (update, next, resp) {
-    if (this.directives['structure'] === undefined)
-	return resp({
-	    error: "Structure Update Failed",
-	    message: "Cannot update undefined; no structure is defined at "+this.route
-	});
-    extend( this.directive['structure'], update );
-    next();
-});
-router.executables({
-    "fail_false": function(args, _, validate) {
-	validate(false);
+crcore.methods({
+    "fail_false": function() {
+	this.fail(false);
     },
-    "Validate": {
-	"pass": function(args, _, validate) {
-	    validate(true);
+    "Rules": {
+	"pass": function() {
+	    this.pass();
 	}
     },
     "TestValidationClass": {
-	"required_not_empty": function(args, _, validate) {
-	    validate({
+	"required_not_empty": function() {
+	    this.fail({
 		error: "Data Required",
 		message: "missing required data"
 	    })
 	}
     },
-    "hello_world": function(args, resp) {
-	resp({
+    "hello_world": function(message) {
+	this.resolve({
 	    "title": "Hello World",
-	    "message": this.args.message
+	    "message": message
 	});
     },
     "ParentClass": {
-	"heythere": function(args, resp) {
-	    resp({
+	"heythere": function(data) {
+	    this.resolve({
 		title: "Parent Class Test",
-		message: this.args.message
+		message: data.message
 	    })
 	}
     }
@@ -130,187 +63,326 @@ function json(d,f) {
     return JSON.stringify(d, null, f===false?null:4);
 }
 
-var tests		= [];
-var failures		= 0;
-var passes		= 0;
-function test_endpoint( endpoint, data, cb ) {
-    if (!data)
-	data		= {};
-    extend(data, { "db": test_endpoint.db });
-    
-    tests.push(new Promise(function(f,r) {
-	var ep		= router.route(endpoint);
-	var e		= ep.execute(data)
-	    .then(function(result) {
-		var test	= cb(result);
-		var status	= test === true ? "PASSED": "FAILED"
-		if(test !== true) {
-		    log.warn(status, endpoint);
-		    log.error("Result from endpoint", endpoint, "with data", Object.keys(data), "-", result);
-		    failures++;
-		    r(test);
-		}
-		else {
-		    log.info(status, endpoint);
-		    passes++;
-		    f(test);
-		}
-	    }, function(err) {
-		var test	= cb(err);
-		var status	= test === true ? "PASSED": "FAILED"
-		if(test !== true) {
-		    log.warn(status, endpoint);
-		    log.error("Endpoint raised error:", err);
-		    failures++;
-		    r(test);
-		}
-		else {
-		    log.info(status, endpoint);
-		    passes++;
-		    f(test);
-		}
-	    })
-	e.catch(function(err) {
-	    log.warn("Caught error");
-	    log.error(err);
-	});
-    }));
-}
-knex.transaction(function(trx) {
-    test_endpoint.db	= trx;
-    test_endpoint('/get/people', null, function(result) {
-    	if (Object.keys(result).length < 80) {
-    	    return ["Unexpected result", result];
-    	}
-    	return true;
-    })
-    
-    test_endpoint('/get/test_method', {
-    	"message": "Travis Mottershead + Erika *{}*"
-    }, function (result) {
-    	if (result.message === undefined)
-    	    return ["Unexpected result", result];
-    	return true;
-    });
+var transaction		= null;
 
-    test_endpoint('/get/parent_class_test', {
-    	"message": "this function has a parent class"
-    }, function (result) {
-    	if (result.message === undefined)
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/responses/static', null, function (result) {
-    	if (result.message !== "this is inline static data") {
-    	    return ["Unexpected result", result] ;
-    	}
-    	return true;
-    });
-
-    test_endpoint('/get/responses/file', null, function (result) {
-    	if (result.message !== "this is a static file response") {
-    	    return ["Unexpected result", result] ;
-    	}
-    	return true;
-    });
-
-    test_endpoint('/get/responses/dynamic', {
-    	"name": {
-    	    "first": "Ricky",
-    	    "last": "Bobby",
-    	    "full": "Ricky Bobby"
-    	}
-    }, function (result) {
-    	if (result.first === undefined) {
-    	    return ["Unexpected result", result] ;
-    	}
-    	return true;
-    });
-
-    test_endpoint('/get/responses/dynamic', {
-    	"name": {
-    	    "test": "< exact"
-    	}
-    }, function (result) {
-    	if (result.test !== "< exact") {
-    	    return ["Unexpected result", result] ;
-    	}
-    	return true;
-    });
-
-    test_endpoint('/get/responses/dynamic_file', {"file": "../../static_result.json"}, function (result) {
-    	if (result.message !== "this is a static file response") {
-    	    return ["Unexpected result", result] ;
-    	}
-    	return true;
-    });
-
-    test_endpoint('/get/testBase', null, function (result) {
-    	if (result.id === undefined)
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/test_validate/1', null, function (result) {
-    	if (result.id !== 1)
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/test_validate/fail_false', null, function (result) {
-    	if (result.error !== "Failed Validation")
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/test_validate/class_method', null, function (result) {
-    	if (result.error !== "Data Required")
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/test_validate/string', null, function (result) {
-    	if (result.message !== "This is not a pass")
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/empty_method', null, function (result) {
-    	if (result.message !== "Executable is missing the method name")
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    test_endpoint('/get/test_validate/multi_level/level_two', null, function (result) {
-    	if (result.message !== "Failed at rule = Failed at level 1")
-    	    return ["Unexpected result", result];
-    	return true;
-    });
-
-    // test_endpoint('/get/trigger/400', null, function (result) {
-    // 	if (result.status !== true)
-    // 	    return ["Unexpected result", result];
-    // 	return true;
-    // });
-
-    log.info("Waiting for", tests.length, "to be fulfilled")
-    return Promise.all(tests).then(function(all) {
-	// trx.commit();
-	// return Promise.resolve();
-    });
-}).then(function() {
-    log.info("Passes", passes);
-    if (failures)
-	log.error("Failures", failures);
-    log.info("Destroying knex context");
-    knex.destroy();
-}, function(err) {
-    log.error("Reject failure");
-    log.error(err);
-    knex.destroy();
-}).catch( function(err) {
-    log.error("Caught failure");
-    log.error(err);
-    knex.destroy();
+router.set_input({
+    "db": knex,
 });
+
+describe("ChaosRouter", function() {
+    describe("Routing", function() {
+
+	it("should get the list of people", function(done) {
+	    var draft		= router.route("/get/people");
+	    draft.proceed().then(function(data) {
+		// [{
+		//     id: 1,
+		//     name:
+		//     {
+		// 	first: "Michelle",
+		// 	last: "Holland",
+		// 	full: "{first_name}||\'\' {last_name}||\'\'"
+		//     },
+		//     phone: "(534)767-6638x942",
+		//     personality: "cocky"
+		// }, ...]
+		expect(data).to.be.an("object");
+		expect(Object.keys(data).length).to.be.gte(80);
+
+		data		= data[1];
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.id).to.be.a("number");
+		expect(data.name).to.be.a("object");
+		expect(data.phone).to.be.a("string");
+		expect(data.personality).to.be.a("string");
+		done();
+	    }, e).catch(e);
+	});
+
+	it("should run method and return object with given message", function(done) {
+	    var draft		= router.route("/get/test_method");
+	    draft.proceed({
+		"message": "Travis Mottershead + Erika *{}*"
+	    }).then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.title).to.be.a("string");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("Travis Mottershead + Erika *{}*");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should run class method and return object with given message", function(done) {
+	    var draft		= router.route("/get/parent_class_test");
+	    draft.proceed({
+    		"message": "this function has a parent class"
+	    }).then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.title).to.be.a("string");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("this function has a parent class");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should return static response", function(done) {
+	    var draft		= router.route("/get/responses/static");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("this is inline static data");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should return reponse from a file", function(done) {
+	    var draft		= router.route("/get/responses/file");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("this is a static file response");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should return dynamic response from given value", function(done) {
+	    var draft		= router.route("/get/responses/dynamic");
+	    draft.proceed({
+    		"name": {
+    		    "first": "Ricky",
+    		    "last": "Bobby",
+    		    "full": "Ricky Bobby"
+    		}
+	    }).then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.first).to.be.a("string");
+		expect(data.last).to.be.a("string");
+		expect(data.full).to.be.a("string");
+		expect(data.first).to.equal("Ricky");
+		expect(data.last).to.equal("Bobby");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should return dynamic response with populater command intact", function(done) {
+	    var draft		= router.route("/get/responses/dynamic");
+	    draft.proceed({
+    		"name": {
+    		    "test": "< exact"
+    		}
+	    }).then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.test).to.be.a("string");
+		expect(data.test).to.equal("< exact");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should return file from dynamic filepath", function(done) {
+	    var draft		= router.route("/get/responses/dynamic_file");
+	    draft.proceed({
+		"file": "../../static_result.json"
+	    }).then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("this is a static file response");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should test base directive", function(done) {
+	    var draft		= router.route("/get/testBase");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.id).to.be.a("number");
+		expect(data.name).to.be.a("object");
+		expect(data.phone).to.be.a("string");
+		expect(data.personality).to.be.a("string");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should pass validation", function(done) {
+	    var draft		= router.route("/get/test_rules/1");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.id).to.be.a("number");
+		expect(data.name).to.be.a("object");
+		expect(data.phone).to.be.a("string");
+		expect(data.personality).to.be.a("string");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should fail validation", function(done) {
+	    var draft		= router.route("/get/test_rules/fail_false");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.error).to.be.a("string");
+		expect(data.message).to.be.a("string");
+		expect(data.error).to.equal("Failed Validation Rule");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should fail class method validation", function(done) {
+	    var draft		= router.route("/get/test_rules/class_method");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.error).to.be.a("string");
+		expect(data.error).to.equal("Data Required");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should fail on string evaluation", function(done) {
+	    var draft		= router.route("/get/test_rules/string");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.error).to.be.a("string");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("This is not a pass");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should error because task list is empty", function(done) {
+	    var draft		= router.route("/get/empty_method");
+	    draft.proceed().then(e, function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("Array is empty");
+		done();
+	    }).catch(e);
+	});
+	
+	it("should fail validation on parent level", function(done) {
+	    var draft		= router.route("/get/test_rules/multi_level/level_two");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("Did not pass rule config '= Failed at level 1'");
+		done();
+	    }, e).catch(e);
+	});
+	
+    });
+
+    describe("Draft object", function() {
+
+	it("check attributes and methods", function(done) {
+	    var draft		= router.route("/get/people/1");
+	    
+	    expect(draft).to.be.an("object");
+
+	    draft.ready(function() {
+		// There is some kind of glitch that makes draft undefined here.  Possibly a problem
+		// in Mocha, but we can bypass it with this
+		var draft	= this;
+		
+		log.info("Testing Draft.key");
+		expect(draft.key).to.be.a("string");
+		expect(draft.key).to.equal("1");
+
+		log.info("Testing Draft.vkey");
+		expect(draft.vkey).to.be.a("string");
+		expect(draft.vkey).to.equal(":id");
+
+		log.info("Testing Draft.id()");
+		expect(draft.id()).to.be.a("string");
+		expect(draft.id()).to.equal("/get/people/1");
+
+		log.info("Testing Draft.path");
+		expect(draft.path).to.be.a("string");
+		expect(draft.path).to.equal("/get/people/1");
+		
+		log.info("Testing Draft.raw_path");
+		expect(draft.raw_path).to.be.a("string");
+		expect(draft.raw_path).to.equal("/get/people/:id");
+		
+		log.info("Testing Draft.segments()");
+		expect(draft.segments()).to.be.an("array");
+		expect(draft.segments()).to.have.length(3);
+		expect(draft.segments()[2]).to.equal("1");
+		
+		log.info("Testing Draft.raw_segments()");
+		expect(draft.raw_segments()).to.be.an("array");
+		expect(draft.raw_segments()).to.have.length(3);
+		expect(draft.raw_segments()[2]).to.equal(":id");
+		
+		log.info("Testing Draft.params");
+		expect(draft.params).to.be.an("object");
+		expect(draft.params.id).to.equal("1");
+		expect(Object.keys(draft.params)).to.have.length(1);
+		
+		log.info("Testing Draft.raw");
+		expect(draft.raw).to.be.an("object");
+		expect(Object.keys(draft.raw)).to.have.length(2);
+		expect(draft.raw.__base__).to.equal("..");
+		expect(draft.raw.__structure__).to.be.an("object");
+		
+		log.info("Testing Draft.config");
+		expect(draft.config).to.be.an("object");
+		expect(draft.config).to.equal(draft.raw);
+		
+		log.info("Testing Draft.directives()");
+		expect(draft.directives()).to.be.an("object");
+		expect(Object.keys(draft.directives())).to.have.length(4);
+		expect(draft.directives().base).to.equal("..");
+		expect(draft.directives().structure).to.be.an("object");
+		
+		log.info("Testing Draft.directive('__notexists__')");
+		expect(draft.directive("__notexists__")).to.be.null;
+		
+		log.info("Testing Draft.parent()");
+		expect(draft.parent()).to.be.an("object");
+		expect(draft.parent().id()).to.be.a("string");
+		expect(draft.parent().id()).to.equal("/get/people");
+		
+		log.info("Testing Draft.parents()");
+		expect(draft.parents()).to.be.an("array");
+		expect(draft.parents()).to.have.length(3);
+		expect(draft.parents()[0]).to.equal(draft.parent());
+
+		var draft		= draft.route("../../people");
+		
+		log.info("Testing Draft.child('create')");
+		expect(draft.child("create")).to.be.an("object");
+		expect(draft.child("create").id()).to.be.a("string");
+		expect(draft.child("create").id()).to.equal("/get/people/create");
+		
+		log.info("Testing Draft.children");
+		expect(draft.children()).to.be.an("array");
+		expect(draft.children()).to.have.length(2);
+		
+		done();
+	    },e).catch(e);
+	});
+	
+    });
+
+    after(function() {
+	knex.destroy();
+    });
+});
+
+// test_endpoint("/get/trigger/400", null, function (result) {
+// 	if (result.status !== true)
+// 	    return ["Unexpected result", result];
+// 	return true;
+// });

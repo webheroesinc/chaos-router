@@ -1,0 +1,302 @@
+
+
+* ChaosRouter Documentation
+  
+  [[https://img.shields.io/travis/webheroesinc/chaos-router/feature-1.0.0.svg]]
+  [[https://img.shields.io/npm/v/chaosrouter.svg]]
+  [[https://img.shields.io/github/tag/webheroesinc/chaos-router.svg]]
+  [[https://img.shields.io/maintenance/yes/2017.svg]]
+
+** Install
+
+   #+BEGIN_SRC bash
+   npm install chaosrouter --save
+   #+END_SRC
+   
+
+** Initializing
+   By initializing with a file path instead of an object, ChaosRouter can reload the config file
+   file whenever there is a change.  Using an object would require restarting the server everytime
+   it changed.
+   
+   #+BEGIN_SRC javascript
+   var chaosrouter      = require('chaosrouter');
+
+   var router           = chaosrouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+
+   // Load JSON from a file
+   var router           = chaosrouter('./routes.json');
+   #+END_SRC
+
+
+** Loading Modules
+
+   #+BEGIN_SRC javascript
+   var chaosrouter      = require('chaosrouter');
+
+   // Load several modules
+   chaosrouter.modules('module1', 'module2', ...);
+
+   // Load one at a time
+   chaosrouter.module('module1');
+   chaosrouter.module('module2');
+   chaosrouter.module(...);
+   #+END_SRC
+
+
+** Enable Directives
+   Directives are not enabled automatically, for good reason.  Let's say you have 2 modules you like
+   but they both have a directive with the same name.  If they loaded automatically, one would
+   overwrite the other.  In order to prevent this overwrite, you would have to know every directive
+   that every module is loading.  You would have to manually disable the one in the module you don't
+   want, and enable the one in the module you do want.  To be safe all the time, directives have to
+   be enabled on a per module basis.
+
+   #+BEGIN_SRC javascript
+   // Enable all directives
+   router.module('module1', router.ENABLE_ALL);
+
+   // Enable all directives
+   router.modules('module1');
+   router.modules({
+       'module1': true,
+   });
+   router.module('module1', router.ENABLE_ALL);
+   router.module('module1', true);
+
+
+   // Enable specific directives
+   router.modules({
+       'module1': ['directive1', 'directive2', ...],
+   });
+   router.module('module1', {
+       enable: ['directive1', 'directive2', ...],
+   });
+   router.module('module1', router.ENABLE_SELECTION, ['directive1', 'directive2', ...]);
+
+
+   // Enable all excluding specific directives
+   router.modules({
+       'module1 ^': ['directive1', 'directive2', ...],
+   });
+   router.module('module1', {
+       exclude: ['directive1', 'directive2', ...],
+   });
+   router.module('module1', router.ENABLE_EXCLUSION, ['directive1', 'directive2', ...]);
+
+
+   // Disable specific directives
+   router.modules({
+       'module1 !': ['directive1', 'directive2', ...],
+   });
+   router.module('module1', {
+       disable: ['directive1', 'directive2', ...],
+   });
+   router.module('module1', router.DISABLE_SELECTION, ['directive1', 'directive2', ...]);
+   #+END_SRC
+
+
+** Calling Module Methods
+   
+
+   #+BEGIN_SRC javascript
+   var module1		= router.module('module1');
+   
+   module1.run_some_method_on_the_module();
+   #+END_SRC
+
+   
+** Usage
+   Here is a simple example of using ChaosRouter to return simple, static text for an endpoint.  We
+   will break down what is happening:
+
+   1. Loading 'chaosrouter'
+   2. Initializing chaosrouter with the map of endpoints
+   3. Defining the ~__response__~ directive
+   4. Route a path and get the endpoint Draft object
+   5. Run the Draft and log the returned result
+
+   Instead of defining your own directives, you can load the 'chaosrouter-base' module and use our
+   standard directive implementations.  See [[#loading-modules][Loading Modules]] section and the [[#][ChaosRouter Libs]]
+   Documentation.
+
+   #+BEGIN_SRC javascript
+   var chaosrouter      = require('chaosrouter');
+
+   var router = chaosrouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+
+   router.directive('response', function(text, _, resolve) {
+       resolve(text);
+   });
+
+   // Get the Draft Node for route path /api/helloworld
+   var draft            = router.route('/api/helloworld');
+
+   # draft.run().then(...
+   # draft.execute().then(...
+   # draft.make().then(...
+   # draft.create().then(...
+   # draft.go().then(...
+   # draft.complete().then(...
+   # draft.finish().then(...
+   # draft.then(...
+
+   draft.proceed().then(function(data) {
+       console.log(data); // == "Hello World!"
+   });
+   #+END_SRC
+
+*** Draft Node
+    This Object represents a specific point in the routes configuration.  A Draft Node contains all
+    the directive instructions for that configuration point.
+    
+    #+BEGIN_SRC javascript
+    var chaosrouter     = require('chaosrouter');
+ 
+    var router = chaosrouter({
+        "user": {
+            "__pre__": true,
+            "__response__": { "1": "Robin Williams" },
+            ":id": {
+                "__response__": {
+                    "id": "< path.id",
+                    "name": "Robin Williams",
+                    "wikipedia": "https://en.wikipedia.org/wiki/Robin_Williams"
+                }
+            }
+        }
+    });
+
+    var draft           = router.route('/user');
+
+    draft.ready(function() {
+        draft.id();                     // /users
+        draft.path;                     // /users
+        draft.raw_path;                 // /users
+        draft.segments()                // [ 'users' ]
+        draft.raw_segments()            // [ 'users' ]
+        draft.params;                   // {}
+        draft.raw                       // { "__pre__": true, "__response__": { ... }, ":id": { ... } }
+        draft.router;                   // Router Object
+        
+        draft.directives();             // { "pre": true, "response": { "1": "Robin Williams" } }
+        draft.directive('response');    // { "1": "Robin Williams" }
+        draft.directive('post');        // null
+        draft.parent();                 // router.route('/')
+        draft.parents();                // [ router.route('/') ]
+        draft.children();               // [ ':id' ]
+        draft.child('1');               // router.route('/user/1')
+    });
+
+
+    var draft           = router.route('/user/1');
+
+    draft.ready(function() {
+        draft.id();                     // /users/1
+        draft.path;                     // /users/1
+        draft.raw_path;                 // /users/:id
+        draft.segments()                // [ 'users', '1' ]
+        draft.raw_segments()            // [ 'users', ':id' ]
+        draft.params;                   // { "id": "1" }
+        draft.raw                       // { "__response__": { "id": "< path.id", "name": "Robin Williams", ... } }
+        draft.router;                   // Router Object
+    
+        draft.directives();             // { "response": { "id": "< path.id", "name": "Robin Williams", ... } }
+        draft.parent();                 // router.route('/user')
+        draft.parents();                // [ router.route('/user'), router.route('/') ]
+        draft.children();               // []
+        draft.child('anything');        // null
+    });
+
+    // Relative routing
+    var draft           = draft.route('../2');
+    #+END_SRC
+    
+
+** Creating a Directive
+   Directives are power behind ChaosRouter!  There is virtually no limit to what you can make a
+   directive do.  Within a directive, there is access to all router resources and configurations.
+   With that access you can program directives to do just about anything, even dynamically configure
+   other directives.
+
+   #+BEGIN_SRC javascript
+   var chaosrouter      = require('chaosrouter');
+   var router           = chaosrouter(<config>);
+
+   router.directive(<key / name>, function(config) {
+       // 'this' is the Draft node
+       // 'config' is the value from this directive in the current Draft
+       // ... do things based on config
+
+       // this.next()                   to move onto the next directive
+       // return this.resolve(...)      to end here with result [...]
+       // return this.reject(...)       to end here with error [...]
+   });
+   #+END_SRC
+
+   
+** Creating a Module
+   A module is simply an object with the name of the module, and a dictionary of directive names and
+   functions.  The module name is the unique name that will be used to reference the module after it
+   is loaded.  When ChaosRouter loads a module, it will call the export function passing itself as
+   the first argument.  It is important to have access to the ChoasRouter module to have full
+   control.  For instance, a module could load several other modules, or use the 'restuct-data' and
+   'populater' modules that are loaded in the ChaosRouter module.
+
+   #+BEGIN_SRC javascript
+   module.exports = function(chaosrouter) {
+       return {
+           "__name__": <module ID>,
+           "__init__": function() {
+               ...
+           },
+           "__enable__": function(method) {
+               ...
+           },
+           "__disable__": function(method) {
+               ...
+           },
+           "__directives__": {
+               <directive name>: function(<config>) {
+                   ...
+               },
+               <directive name>: {
+                   "__before__": function(<config>) {
+                       ...
+                   },
+                   "__runtime__": function(<config>) {
+                       ...
+                   },
+                   "__after__": function(<config>) {
+                       ...
+                   },
+               },
+               ...
+           },
+           <key1>: <value1>,
+           <key2>: function() {
+               return <value2>;
+           },
+           ...
+       };
+   };
+   #+END_SRC
+
+   You can access anything inside the module using
+   #+BEGIN_SRC javascript
+   var module           = router.module(<module ID>);
+   module.<key1>;       // <value1>
+   module.<key2>();     // <value2>
+   #+END_SRC
