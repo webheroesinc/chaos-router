@@ -170,6 +170,23 @@
 	    "__table__": "people"
 	}
     },
+    "defer": {
+	"response": {
+	    "__tasks__": [
+		["Defer.response"]
+	    ]
+	},
+	"method": {
+	    "__tasks__": [
+		["Defer.method"]
+	    ]
+	},
+	"route": {
+	    "__tasks__": [
+		["Defer.route"]
+	    ]
+	}
+    },
     "upload": {
 	"__tasks__": [
 	    ["uploadTest"]

@@ -505,7 +505,7 @@ Draft.prototype.process_directives	= function(directivesDict) {
 	    });
 	}
 	catch (err) {
-	    console.error("Caught Promise snuffing error", err);
+	    log.error("Caught Promise snuffing error", err);
 	    r({
 		"error": err.name,
 		"message": err.message,

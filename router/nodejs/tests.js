@@ -56,7 +56,20 @@ crcore.methods({
 		message: data.message
 	    })
 	}
-    }
+    },
+    "Defer": {
+	"method": function() {
+	    this.defer( this.method('Defer.response') );
+	},
+	"route": function() {
+	    this.defer( this.route('/defer/response') );
+	},
+	"response": function() {
+	    this.resolve({
+		message: "This response has been deferred"
+	    });
+	},
+    },
 });
 
 function json(d,f) {
@@ -277,6 +290,28 @@ describe("ChaosRouter", function() {
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("Did not pass rule config '= Failed at level 1'");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should defer responding to a different method", function(done) {
+	    var draft		= router.route("/defer/method");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("This response has been deferred");
+		done();
+	    }, e).catch(e);
+	});
+	
+	it("should defer responding to a different route", function(done) {
+	    var draft		= router.route("/defer/route");
+	    draft.proceed().then(function(data) {
+		log.debug("Data:", data);
+		expect(data).to.be.an("object");
+		expect(data.message).to.be.a("string");
+		expect(data.message).to.equal("This response has been deferred");
 		done();
 	    }, e).catch(e);
 	});

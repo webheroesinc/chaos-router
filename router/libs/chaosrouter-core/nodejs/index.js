@@ -64,7 +64,22 @@ module.exports = function(chaosrouter) {
 	}
 	return args;
     }
-    
+    function run_command(self, args, ctx, name, error) {
+	if (args.length === 0) {
+	    error.message	= "Array is empty";
+	    return self.reject(error)
+	}
+	
+	var method	= args.shift();
+	var cmd		= populater(__methods__)("< "+method);
+	var data	= fillArguments(args, self);
+
+	if (typeof cmd === 'function')
+	    cmd.apply(ctx, data);
+	else
+	    throw Error("Method '"+method+"' @ "+self.raw_path+" in "+name+" directive is not a function");
+    }
+
     return {
 	"__name__": "chaosrouter-core",
 	"__init__": function(router) {
@@ -126,32 +141,40 @@ module.exports = function(chaosrouter) {
 			"message": "Did not pass rule config '"+args+"'",
 		    };
 		    var check		= checkspace(args, error);
-		    
+
 		    return function(next) {
+			var ctx		= {
+			    draft: self,
+			    next: next,
+			    pass: next,
+			    fail: function(result) {
+				check(result, next, self.resolve);
+			    },
+			    resolve: self.resolve,
+			    reject: self.reject,
+			    defer: function(promise) {
+				return promise.then(self.resolve, self.reject).catch(self.reject);
+			    },
+			    method: function() {
+				var args	= Array.prototype.slice.call(arguments);
+				return new Promise(function(f,r) {
+				    var ctx	= Object.assign({}, ctx);
+				    ctx.resolve	= f;
+				    ctx.reject	= r;
+				    run_command(self, args, ctx, "__rules__", error);
+				});
+			    },
+			    route: function(path) {
+				return self.router.route(path).proceed(self.input);
+			    },
+			};
+			
 			if (typeof args === 'string') {
 			    var result	= populater(self)(args);
 			    return check(result, next, self.resolve);
 			}
 			else if(Array.isArray(args)) {
-			    if (args.length === 0) {
-				error.message	= "Array is empty";
-				return self.reject(error)
-			    }
-			    
-			    self.pass	= function(result) {
-				next();
-			    };
-			    self.fail	= function(result) {
-				check(result, next, self.resolve);
-			    };
-			    var method	= args.shift();
-			    var cmd	= populater(__methods__)("< "+method);
-			    var data	= fillArguments(args, self);
-
-			    if (typeof cmd === 'function')
-				cmd.apply(self, data);
-			    else
-				throw Error("Method '"+method+"' @ "+self.raw_path+" in __rules__ directive is not a function");
+			    run_command(self, args, ctx, "__rules__", error);
 			}
 			else {
 			    log.error("Args object", args);
@@ -161,8 +184,6 @@ module.exports = function(chaosrouter) {
 		});
 
 		validations.push(function() {
-		    delete self.pass;
-		    delete self.fail;
 		    self.next();
 		});
 		run_sequence(validations);
@@ -178,23 +199,33 @@ module.exports = function(chaosrouter) {
 		    };
 		    
 		    return function(next) {
+			var ctx		= {
+			    draft: self,
+			    next: next,
+			    resolve: self.resolve,
+			    reject: self.reject,
+			    defer: function(promise) {
+				return promise.then(self.resolve, self.reject).catch(self.reject);
+			    },
+			    method: function() {
+				var args	= Array.prototype.slice.call(arguments);
+				return new Promise(function(f,r) {
+				    var ctx	= Object.assign({}, ctx);
+				    ctx.resolve	= f;
+				    ctx.reject	= r;
+				    run_command(self, args, ctx, "__tasks__", error);
+				});
+			    },
+			    route: function(path) {
+				return self.router.route(path).proceed(self.input);
+			    },
+			};
+			
 			if (typeof args === 'string') {
 			    return self.resolve(populater(self)(args));
 			}
 			else if(Array.isArray(args)) {
-			    if (args.length === 0) {
-				error.message	= "Array is empty";
-				return self.reject(error)
-			    }
-
-			    var method	= args.shift();
-			    var cmd	= populater(__methods__)("< "+method);
-			    var data	= fillArguments(args, self);
-
-			    if (typeof cmd === 'function')
-				cmd.apply(self, data);
-			    else
-				throw Error("Method '"+method+"' @ "+self.raw_path+" in __rules__ directive is not a function");
+			    run_command(self, args, ctx, "__tasks__", error);
 			}
 			else {
 			    log.error("Args object", args);
@@ -251,5 +282,6 @@ module.exports = function(chaosrouter) {
 	    for(var k in dict)
 		__methods__[k]	= dict[k];
 	},
+	"__methods__": __methods__,
     };
 };
