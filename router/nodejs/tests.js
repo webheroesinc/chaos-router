@@ -50,7 +50,8 @@ crcore.methods({
 	});
     },
     "ParentClass": {
-	"heythere": function(data) {
+	"heythere": function(conf) {
+	    var data		= chaosrouter.restruct(this.draft, conf);
 	    this.resolve({
 		title: "Parent Class Test",
 		message: data.message
