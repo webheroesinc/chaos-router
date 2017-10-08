@@ -59,8 +59,8 @@ module.exports = function(chaosrouter) {
 	    var type		= typeof arg;
 	    if (type === 'string')
 		args[i]		= populater(data)(arg);
-	    else if(type === 'object' && arg !== null)
-		args[i]		= restruct(data, arg);
+	    // else if(type === 'object' && arg !== null)
+	    // 	args[i]		= restruct(data, arg);
 	}
 	return args;
     }
@@ -74,8 +74,10 @@ module.exports = function(chaosrouter) {
 	var cmd		= populater(__methods__)("< "+method);
 	var data	= fillArguments(args, self);
 
-	if (typeof cmd === 'function')
+	if (typeof cmd === 'function') {
+	    log.debug("Run command '"+method+"' with context", ctx, "for Draft", self.id());
 	    cmd.apply(ctx, data);
+	}
 	else
 	    throw Error("Method '"+method+"' @ "+self.raw_path+" in "+name+" directive is not a function");
     }
@@ -143,31 +145,36 @@ module.exports = function(chaosrouter) {
 		    var check		= checkspace(args, error);
 
 		    return function(next) {
-			var ctx		= {
-			    draft: self,
-			    next: next,
-			    pass: next,
-			    fail: function(result) {
-				check(result, next, self.resolve);
-			    },
-			    resolve: self.resolve,
-			    reject: self.reject,
-			    defer: function(promise) {
-				return promise.then(self.resolve, self.reject).catch(self.reject);
-			    },
-			    method: function() {
-				var args	= Array.prototype.slice.call(arguments);
-				return new Promise(function(f,r) {
-				    var ctx	= Object.assign({}, ctx);
-				    ctx.resolve	= f;
-				    ctx.reject	= r;
-				    run_command(self, args, ctx, "__rules__", error);
-				});
-			    },
-			    route: function(path) {
-				return self.router.route(path).proceed(self.input);
-			    },
-			};
+			function create_ctx() {
+			    return {
+				draft: self,
+				next: next,
+				pass: next,
+				fail: function(result) {
+				    check(result, next, self.resolve);
+				},
+				resolve: self.resolve,
+				reject: self.reject,
+				defer: function(promise) {
+				    var self		= this;
+				    log.trace("Calling defer for", self.draft.path);
+				    return promise.then(self.resolve, self.reject).catch(self.reject);
+				},
+				method: function() {
+				    var args		= Array.prototype.slice.call(arguments);
+				    return new Promise(function(f,r) {
+					var ctx		= create_ctx();
+					ctx.resolve	= f;
+					ctx.reject	= r;
+					run_command(self, args, ctx, "__rules__", error);
+				    });
+				},
+				route: function(path) {
+				    return self.router.route(path).proceed(self.input);
+				},
+			    };
+			}
+			var ctx		= create_ctx();
 			
 			if (typeof args === 'string') {
 			    var result	= populater(self)(args);
@@ -199,27 +206,36 @@ module.exports = function(chaosrouter) {
 		    };
 		    
 		    return function(next) {
-			var ctx		= {
-			    draft: self,
-			    next: next,
-			    resolve: self.resolve,
-			    reject: self.reject,
-			    defer: function(promise) {
-				return promise.then(self.resolve, self.reject).catch(self.reject);
-			    },
-			    method: function() {
-				var args	= Array.prototype.slice.call(arguments);
-				return new Promise(function(f,r) {
-				    var ctx	= Object.assign({}, ctx);
-				    ctx.resolve	= f;
-				    ctx.reject	= r;
-				    run_command(self, args, ctx, "__tasks__", error);
-				});
-			    },
-			    route: function(path) {
-				return self.router.route(path).proceed(self.input);
-			    },
-			};
+			function create_ctx() {
+			    return {
+				draft: self,
+				next: next,
+				pass: next,
+				fail: function(result) {
+				    check(result, next, self.resolve);
+				},
+				resolve: self.resolve,
+				reject: self.reject,
+				defer: function(promise) {
+				    var self		= this;
+				    log.trace("Calling defer for", self.draft.path);
+				    return promise.then(self.resolve, self.reject).catch(self.reject);
+				},
+				method: function() {
+				    var args		= Array.prototype.slice.call(arguments);
+				    return new Promise(function(f,r) {
+					var ctx		= create_ctx();
+					ctx.resolve	= f;
+					ctx.reject	= r;
+					run_command(self, args, ctx, "__rules__", error);
+				    });
+				},
+				route: function(path) {
+				    return self.router.route(path).proceed(self.input);
+				},
+			    };
+			}
+			var ctx		= create_ctx();
 			
 			if (typeof args === 'string') {
 			    return self.resolve(populater(self)(args));
