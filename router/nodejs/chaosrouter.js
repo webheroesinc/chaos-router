@@ -126,6 +126,7 @@ function run_sequence(list, fn, index) {
     });
 }
 function find_child_config(data, key, fn) {
+    var key			= decodeURIComponent(key);
     var config			= data[key] || null;
     var params			= {};
     var vname			= null

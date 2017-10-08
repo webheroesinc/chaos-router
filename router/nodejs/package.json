@@ -1,6 +1,6 @@
 {
   "name": "chaosrouter",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Customizable, cross platform, web server routing framework",
   "main": "chaosrouter.js",
   "scripts": {
