@@ -1,0 +1,34 @@
+
+* Chaosrouter
+  A cross-platform routing library for web server API's.
+  
+** Overview
+   Chaosrouter is designed to make defining API's simple and maintainable.  The idea was originally
+   inspired by Firebase and its backend JSON configuration.  Specifically, the ability to structure
+   the API depths and specify rules.  Since then it has evolved into a much more flexible and
+   community driven platform for sharing processing techniques.  Directives are what give
+   Chaosrouter this extensibility.  Directives can be loaded from npm packages so that sharing is as
+   easy as creating a module.
+
+** Glossary of terms
+   
+   *Directives* - a programmed set of instructions that are triggered by keys in the JSON configuration.
+
+** Package Breakdown
+   By default, Chaosrouter does not come with any Directives predefined.  We want to allow the
+   community to be unencumbered when designing there API process.  'chaosrouter-core' and several
+   other modules contain our Directive process.  This implementation is ready for those who do not
+   wish to design there own process.
+
+*** chaosrouter
+    Contains the routing library, module loading, and directive registration/processing.
+
+*** chaosrouter-core
+    Undocumented
+   
+*** chaosrouter-sql
+    Undocumented
+
+** Language Support
+   
+   [[router/nodejs][Node.js]]
