@@ -1,0 +1,29 @@
+
+* To-do
+
+** Chaosrouter errors
+   Errors within chaosrouter should always be caught and handled
+
+** Chaosrouter Core context
+   Make sure the context has the correct methods when running directives, and when calling sub
+   methods
+
+** Params were not URI decoded
+   Make sure that params are being URI decoded
+
+** Defer called wrong resolve, reject
+   Make sure defer doesn't call the wrong resolve, reject methods
+
+** Restructuring object arguments
+   The Restruct API should be re-designed so that an object will remain untouched if there are no
+   Restruct commands in it.
+
+** Populater templates
+   Make templates usable in other templates
+
+** Populater methods
+   Be able to pass functions with names so you don't have to specify the name
+
+** Chaosrouter Core rules
+   Parent rules are only run if there is a rules config in the Draft.  Parent rules should always
+   be run!

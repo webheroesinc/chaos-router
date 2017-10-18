@@ -144,19 +144,55 @@
    // Get the Draft Node for route path /api/helloworld
    var draft            = router.route('/api/helloworld');
 
-   # draft.run().then(...
-   # draft.execute().then(...
-   # draft.make().then(...
-   # draft.create().then(...
-   # draft.go().then(...
    # draft.complete().then(...
-   # draft.finish().then(...
-   # draft.then(...
-
    draft.proceed().then(function(data) {
        console.log(data); // == "Hello World!"
    });
    #+END_SRC
+
+*** Usage with ExpressJS
+    This example is the bare minimum for a functional use case.
+
+    #+BEGIN_SRC javascript
+    const chaosrouter           = require('chaosrouter');
+    const express               = require('express');
+
+    chaosrouter.modules( 'chaosrouter-core' );
+    
+    const app                   = express();
+    const router                = chaosrouter({
+        "__response__": "404! Try /hello_world",
+        "hello_world": {
+            "__response__": "Hello World!"
+        }
+    });
+    
+    router.modules('chaosrouter-core');
+    
+    app.use('/', function (req, res) {
+        let draft               = router.route(req.path);
+
+        if (draft === false)
+            return res.send("404");
+
+        draft.proceed().then(function (text) {
+            res.send(text);
+        });
+    });
+
+    api.listen(8800);
+    #+END_SRC
+
+    - A call to the server with path ~/~ would resolve to ~404! Try /hello_world~.
+    - A call to the server with path ~/hello_world~ would resolve to ~Hello World!~.
+
+    #+BEGIN_SRC bash
+    $ curl http://localhost:8800
+    404! Try /hello_world
+    $ curl http://localhost:8800/hello_world
+    Hello World!
+    #+END_SRC
+    
 
 *** Draft Node
     This Object represents a specific point in the routes configuration.  A Draft Node contains all
