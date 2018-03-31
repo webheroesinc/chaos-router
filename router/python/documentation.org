@@ -1,0 +1,331 @@
+
+* User Documentation
+
+** Install
+
+   #+BEGIN_SRC bash
+   pip install chaosrouter
+   #+END_SRC
+   
+
+** Initializing
+   By initializing with a file path instead of an object, ChaosRouter can reload the config file
+   file whenever there is a change.  Using an object would require restarting the server everytime
+   it changed.
+   
+   #+BEGIN_SRC javascript
+   from chaosrouter	import ChaosRouter
+
+   Router               = ChaosRouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+
+   # Load JSON from a file
+   Router               = ChaosRouter("./routes.json");
+   #+END_SRC
+
+
+** Loading Modules
+
+   #+BEGIN_SRC javascript
+   from chaosrouter	import ChaosRouter
+
+   # Load several modules
+   ChaosRouter.modules('module1', 'module2', ...);
+
+   # Load one at a time
+   ChaosRouter.module('module1');
+   ChaosRouter.module('module2');
+   ChaosRouter.module(...);
+   #+END_SRC
+
+
+** Enable Directives
+   Directives are not enabled automatically, for good reason.  Let's say you have 2 modules you like
+   but they both have a directive with the same name.  If they loaded automatically, one would
+   overwrite the other.  In order to prevent this overwrite, you would have to know every directive
+   that every module is loading.  You would have to manually disable the one in the module you don't
+   want, and enable the one in the module you do want.  To be safe all the time, directives have to
+   be enabled on a per module basis.
+
+   #+BEGIN_SRC javascript
+   # Enable all directives
+   Router.module('module1', Router.ENABLE_ALL);
+
+   # Enable all directives
+   Router.modules('module1');
+   Router.modules({
+       'module1': true,
+   });
+   Router.module('module1', Router.ENABLE_ALL);
+   Router.module('module1', true);
+
+
+   # Enable specific directives
+   Router.modules({
+       'module1': ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', {
+       enable: ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', Router.ENABLE_SELECTION, ['directive1', 'directive2', ...]);
+
+
+   # Enable all excluding specific directives
+   Router.modules({
+       'module1 ^': ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', {
+       exclude: ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', Router.ENABLE_EXCLUSION, ['directive1', 'directive2', ...]);
+
+
+   # Disable specific directives
+   Router.modules({
+       'module1 !': ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', {
+       disable: ['directive1', 'directive2', ...],
+   });
+   Router.module('module1', Router.DISABLE_SELECTION, ['directive1', 'directive2', ...]);
+   #+END_SRC
+
+
+** Calling Module Methods
+   
+
+   #+BEGIN_SRC javascript
+   module1		= Router.module('module1');
+   
+   module1.run_some_method_on_the_module();
+   #+END_SRC
+
+   
+** Usage
+   Here is a simple example of using ChaosRouter to return simple, static text for an endpoint.  We
+   will break down what is happening:
+
+   1. Loading 'chaosrouter'
+   2. Initializing chaosrouter with the map of endpoints
+   3. Defining the ~__response__~ directive
+   4. Route a path and get the endpoint Draft object
+   5. Run the Draft and log the returned result
+
+   Instead of defining your own directives, you can load the 'chaosrouter-base' module and use our
+   standard directive implementations.  See [[#loading-modules][Loading Modules]] section and the [[#][ChaosRouter Libs]]
+   Documentation.
+
+   #+BEGIN_SRC javascript
+   from chaosrouter	import ChaosRouter
+
+   Router = ChaosRouter({
+       "api": {
+           "helloworld": {
+               "__response__": "Hello World!"
+           }
+       }
+   });
+
+   def response(self, text, _, resolve):
+       resolve(text)
+
+   Router.directive('response', response);
+   # Router.directive('response', lambda s,t,_,r: r(t));
+
+   # Get the Draft Node for route path /api/helloworld
+   draft                = Router.route('/api/helloworld');
+
+   # draft.complete().then(...
+   data			= draft.proceed()
+   print(data)		# == "Hello World!"
+   #+END_SRC
+
+*** Usage with http.server
+    This example is the bare minimum for a functional use case.
+
+    #+BEGIN_SRC javascript
+    from chaosrouter            import ChaosRouter
+    from http                   import ( HTTPStatus, )
+    from http.server            import ( HTTPServer,
+                                         SimpleHTTPRequestHandler )
+
+    ChaosRouter.modules( 'chaosrouter-core' );
+    
+    Router                      = ChaosRouter({
+        "__response__": "404! Try /hello_world",
+        "hello_world": {
+            "__response__": "Hello World!"
+        }
+    });
+    Router.modules('chaosrouter-core');
+    
+
+    class APIRequestHandler( SimpleHTTPRequestHandler ):
+    
+        def do_GET(self):
+            draft               = Router.route(self.path);
+    
+            if draft == false:
+                return self.send_error(HTTPStatus.NOT_FOUND);
+    
+            text                = draft.proceed()
+            self.wfile.write( text.encode('utf-8') )
+
+
+    httpd                       = HTTPServer(server_address, APIRequestHandler)
+    httpd.serve_forever()
+    
+    #+END_SRC
+
+    - A call to the server with path ~/~ would resolve to ~404! Try /hello_world~.
+    - A call to the server with path ~/hello_world~ would resolve to ~Hello World!~.
+
+    #+BEGIN_SRC bash
+    $ curl http://localhost:8800
+    404! Try /hello_world
+    $ curl http://localhost:8800/hello_world
+    Hello World!
+    #+END_SRC
+    
+
+*** Draft Node
+    This Object represents a specific point in the routes configuration.  A Draft Node contains all
+    the directive instructions for that configuration point.
+    
+    #+BEGIN_SRC javascript
+    from chaosrouter            import ChaosRouter
+ 
+    Router = ChaosRouter({
+        "user": {
+            "__pre__": true,
+            "__response__": { "1": "Robin Williams" },
+            ":id": {
+                "__response__": {
+                    "id": "< path.id",
+                    "name": "Robin Williams",
+                    "wikipedia": "https://en.wikipedia.org/wiki/Robin_Williams"
+                }
+            }
+        }
+    });
+
+    Draft                               = Router.route('/user');
+
+    Draft.id();                         # /users
+    Draft.path;                         # /users
+    Draft.raw_path;                     # /users
+    Draft.segments()                    # [ 'users' ]
+    Draft.raw_segments()                # [ 'users' ]
+    Draft.params;                       # {}
+    Draft.raw                           # { "__pre__": true, "__response__": { ... }, ":id": { ... } }
+    Draft.router;                       # Router Object
+                                    
+    Draft.directives();                 # { "pre": true, "response": { "1": "Robin Williams" } }
+    Draft.directive('response');        # { "1": "Robin Williams" }
+    Draft.directive('post');            # null
+    Draft.parent();                     # Router.route('/')
+    Draft.parents();                    # [ Router.route('/') ]
+    Draft.children();                   # [ ':id' ]
+    Draft.child('1');                   # Router.route('/user/1')
+
+
+    Draft                               = Router.route('/user/1');
+
+    Draft.id();                         # /users/1
+    Draft.path;                         # /users/1
+    Draft.raw_path;                     # /users/:id
+    Draft.segments()                    # [ 'users', '1' ]
+    Draft.raw_segments()                # [ 'users', ':id' ]
+    Draft.params;                       # { "id": "1" }
+    Draft.raw                           # { "__response__": { "id": "< path.id", "name": "Robin Williams", ... } }
+    Draft.router;                       # Router Object
+                                    
+    Draft.directives();                 # { "response": { "id": "< path.id", "name": "Robin Williams", ... } }
+    Draft.parent();                     # Router.route('/user')
+    Draft.parents();                    # [ Router.route('/user'), Router.route('/') ]
+    Draft.children();                   # []
+    Draft.child('anything');            # null
+
+    # Relative routing
+    Draft                               = Draft.route('../2');
+    #+END_SRC
+    
+
+** Creating a Directive
+   Directives are power behind ChaosRouter!  There is virtually no limit to what you can make a
+   directive do.  Within a directive, there is access to all router resources and configurations.
+   With that access you can program directives to do just about anything, even dynamically configure
+   other directives.
+
+   #+BEGIN_SRC javascript
+   from chaosrouter     import ChaosRouter
+   Router               = ChaosRouter(<config>);
+
+   def <def name>(self, config):
+       # 'self' is the Draft node
+       # 'config' is the value from this directive in the current Draft
+       # ... do things based on config
+
+       # return self.resolve(...)      to end here with result [...]
+       # return self.reject(...)       to end here with error [...]
+   });
+
+   Router.directive(<key / name>, <def name>)
+   #+END_SRC
+
+   
+** Creating a Module
+   A module is simply an object with the name of the module, and a dictionary of directive names and
+   functions.  The module name is the unique name that will be used to reference the module after it
+   is loaded.  When ChaosRouter loads a module, it will call the export function passing itself as
+   the first argument.  It is important to have access to the ChoasRouter module to have full
+   control.  For instance, a module could load several other modules, or use the 'restuct-data' and
+   'populater' modules that are loaded in the ChaosRouter module.
+
+   #+BEGIN_SRC javascript
+   class <directive>( object ):
+
+       def before(self, config):
+           pass
+
+       def runtime(self, config):
+           pass
+
+       def after(self, config):
+           pass
+       
+   def Module( ChaosRouter ):
+
+       class <module>( object ):
+           __name__             = <module_ID>
+           __directives__       = {
+               <directive name>: <directive>()
+           }
+           <key1>               = <value1>
+       
+           def __init__(self):
+               pass
+       
+           def __enable__(self, method):
+               pass
+       
+           def __disable__(self, method):
+               pass
+
+           def <key2>(self):
+               return <value2>
+
+       return <module>
+   #+END_SRC
+
+   You can access anything inside the module using
+   #+BEGIN_SRC javascript
+   module               = Router.module(<module ID>);
+   module.<key1>;       # <value1>
+   module.<key2>();     # <value2>
+   #+END_SRC

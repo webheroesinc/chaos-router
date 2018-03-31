@@ -27,7 +27,7 @@ setup(
         "License :: Other/Proprietary License",
         "Programming Language :: Python :: 2.7",
         "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
+        "Intended Audience :: Developers"
     ],
-)
+),
 
