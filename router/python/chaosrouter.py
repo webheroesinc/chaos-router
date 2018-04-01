@@ -1,5 +1,7 @@
 
 import logging
+import json
+
 from urllib.parse				import ( quote		as urllib_quote,
                                                          unquote	as urllib_unquote )
 
@@ -63,6 +65,58 @@ def get_directives( data ):
             directives[name]		= data[k]
     return directives
 
+class Loader( object ):
+
+    def module(self, module):
+        log.debug("Loading module from path: {}".format(module))
+        module				= __import__(module).Module(ChaosRouter)
+
+        if module is not None:
+            ChaosRouter.register.module(module)
+
+    def modules(self, *args):
+        modules				= []
+        for name in modules:
+            modules.append( self.module( name ) )
+        return modules
+
+    
+class Register( object ):
+
+    def module(self, module=None):
+        modlib				= ChaosRouter.__modules__
+        def wrap(m):
+            name			= m.__name__
+            log.debug("Registering module {}".format(name))
+            modlib[name]		= m
+            
+            if not hasattr(m, '__directives__') or type(m.__directives__) is not dict:
+                m.__directives__	= {}
+            
+            def wrapper(*args):
+                return m(*args)
+            return wrapper
+
+        if module is not None:
+            wrap(module)
+            return
+            
+        return wrap
+
+    def directive(self, name):
+        if ChaosRouter.__modules__.get(name)is None:
+            raise Exception("There is no module with the name '{}'".format(name))
+        
+        dirlib				= ChaosRouter.__modules__[name].__directives__
+        def wrap(f):
+            dname			= f.__name__
+            log.debug("Registering directive {} in module {}".format(dname, name))
+            dirlib[dname]		= f
+            def wrapper(*args):
+                return f(*args)
+            return wrapper
+        return wrap
+    
 
 class ChaosRouter( object ):
 
@@ -72,6 +126,9 @@ class ChaosRouter( object ):
     ENABLE_SELECTION			= 1
     ENABLE_EXCLUSION			= 2
     DISABLE_SELECTION			= 3
+    loader				= Loader()
+    register				= Register()
+    __modules__				= {}
 
     def __init__(self, routes, opts=None):
 
@@ -95,6 +152,86 @@ class ChaosRouter( object ):
         self.__directives__		= { "before": {}, "runtime": {}, "after": {} }
         self.__root__			= Draft(self)
 
+    def modules(self, *args):
+        for config in args:
+            if type(config) is str:
+                log.debug("Load modules string {}".format(config))
+                self.module(config, ChaosRouter.ENABLE_ALL)
+            elif type(config) is dict:
+                log.debug("Load modules object {}".format(config))
+                for name,directives in config.items():
+                    split		= name.split(' ')
+                    if len(split) == 2:
+                        name		= split[0]
+                        cmd		= split[1]
+                        if cmd == "^":
+                            self.module(name, { "exclude": directives })
+                        elif cmd == "!":
+                            self.module(name, { "disable": directives })
+                        else:
+                            log.error("Unknown command '{}' in module loading".format(cmd))
+                    elif directives is True:
+                        self.module(name, ChaosRouter.ENABLE_ALL)
+                    elif type(directives) is list:
+                        self.module(name, { "enable": directives })
+                    else:
+                        log.error("Unexpected type for directive list '{}'".format(type(directives)))
+            else:
+                log.error("Failed to load module because of unexpected argument type {}".format(type(config)))
+
+    def module(self, name, config, modules=None):
+        if type(config) is int:
+            log.debug("Converting config number {} to config object".format(config))
+            
+            if config == ChaosRouter.ENABLE_ALL:
+                return self.module(name, {"enable": True})
+            elif config == ChaosRouter.ENABLE_SECLECTION:
+                return self.module(name, {"enable": modules})
+            elif config == ChaosRouter.ENABLE_EXCLUSION:
+                return self.module(name, {"exclude": modules})
+            elif config == ChaosRouter.DISABLE_SELECTION:
+                return self.module(name, {"disable": modules})
+            else:
+                log.error("Unknown config number in Module load '{}'.  Supported values are ENABLE_ALL, ENABLE_SELECTION, ENABLE_EXCLUSION, DISABLE_SELECTION".format(config))
+                return
+        module				= ChaosRouter.__modules__.get(name)
+
+        if module is None:
+            raise Exception("Module '{}' has not bee loaded".format(name))
+
+        directives			= module.__directives__
+
+        if config is True:
+            config			= {"enable": True}
+
+        if type(config) is dict:
+            log.debug("Load module '{}' with config {}".format(name, config))
+            enable			= config.get('enable')
+            exclude			= config.get('exclude')
+            disable			= config.get('disable')
+            if enable is True:
+                for name,v in directives.items():
+                    self.directive(name, v)
+            elif type(enable) is list:
+                for name in enable:
+                    self.directive(name, directives.get(name))
+                    # Doesn't check if the directive name actually existed
+            elif type(exclude) is list:
+                for name in exclude:
+                    self.directive(name, directives.get(name))
+                    # Doesn't check if the directive name actually existed
+            elif type(exclude) is list:
+                for name in disable:
+                    self.directive(name, directives.get(name))
+                    # Doesn't check if the directive name actually existed
+            else:
+                log.error("Configuration does not contain any valid commands (eg. enable, exclude, disable): {}".format(config))
+
+        elif config is None:
+            log.error("Unexpected configuration type in module load '{}'".format( type(config) ))
+            
+        return module
+
     def directive(self, name=None, fns=None):
         dirs				= self.__directives__
         
@@ -108,18 +245,19 @@ class ChaosRouter( object ):
                 return wrapper
             return wrap
 
-        if callable(fns):
+        isclass				= any(k in ['before', 'runtime', 'after'] for k in dir(fns))
+        log.debug("Directive is class: {}".format(isclass))
+        if isclass:
+            if hasattr(fns, 'before'):
+                dirs['before'][name]	= fns.before
+            if hasattr(fns, 'runtime'):
+                dirs['runtime'][name]	= fns.runtime
+            if hasattr(fns, 'after'):
+                dirs['after'][name]	= fns.after
+        else:
             log.debug("Registering runtime method {}: {}".format(name, repr(fns)))
             dirs['runtime'][name]	= fns
-        else:
-            if fns.__before__:
-                dirs['before'][name]	= fns.__before__
-            if fns.__runtime__:
-                dirs['runtime'][name]	= fns.__runtime__
-            if fns.__after__:
-                dirs['after'][name]	= fns.__after__
-    
-
+                
     def route(self, path):
         return self.root().route(path)
 
@@ -139,8 +277,6 @@ class Draft( object ):
         self.__resolve__		= None
         self.__reject__			= None
 
-        log.debug("Parent config: {}".format(parent.config))
-        
         if isinstance(parent, ChaosRouter):
             self.config			= parent.config
             self.params			= {}
@@ -241,14 +377,18 @@ class Draft( object ):
                 if config is None:
                     log.debug("For path {} skipping directive {}".format(self.path, k))
                     continue
+
+                if not callable(directive):
+                    raise Exception("directive is not callable.  fount type {}".format(type(directive)))
                 
+                log.error("Directive {}".format(directive))
                 log.debug("For path {} run directive {} with config {}".format(self.path, k, config))
                 directive(self, config)
                 
                 if self.__reject__ is not None:
                     break
         except Exception as e:
-            log.error("Error in process_directives(): {}".format(e))
+            log.exception("Error in process_directives(): {}".format(e))
             self.reject(e)
 
         if self.__reject__ is not None:
@@ -268,11 +408,11 @@ class Draft( object ):
                 log.debug("  {}: {}".format(n, repr(d)))
             
         directives			= self.router.__directives__['runtime']
-        # log.debug("Processing runtime directives: {}", directives.keys())
+        log.debug("Processing runtime directives: {}".format( directives.keys() ))
         response			= self.process_directives( directives )
         
         directives			= self.router.__directives__['after']
-        # log.debug("Processing after directives: {}", directives.keys())
+        log.debug("Processing after directives: {}".format( directives.keys() ))
         self.process_directives( directives )
 
         return response
