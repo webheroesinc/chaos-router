@@ -6,7 +6,7 @@ from urllib.parse			import ( quote		as urllib_quote,
                                                  unquote	as urllib_unquote )
 
 log					= logging.getLogger('ChaosRouter')
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 
 def encode_URI(text):
@@ -36,7 +36,7 @@ def get_variable_key( config ):
             if vkey is None:
                 vkey			= key
             else:
-                pass # TODO: warn about multiple variable keys
+                log.warn("Multiple variable keys were found '{}'.  Using first key '{}'".format(key, vkey))
     return vkey
 
 def get_non_directives(data):

@@ -48,7 +48,7 @@ def test_draft_object():
     
     log.info("Testing Draft.raw")
     assert type(Draft.raw) is dict
-    assert len(Draft.raw) == 3
+    assert len(Draft.raw) == 4
     assert type(Draft.raw.get('__trigger__')) is list
     assert type(Draft.raw.get('__response__')) is dict
     assert type(Draft.raw.get('delete')) is dict
@@ -87,5 +87,5 @@ def test_draft_object():
     log.info("Testing Draft.children()")
     children				= Draft.children()
     assert type(children) is list
-    assert len(children)		== 1
+    assert len(children)		== 2
     

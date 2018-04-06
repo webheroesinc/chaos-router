@@ -2,8 +2,11 @@
 import logging
 import inspect
 
+from populater				import Populater
+from restruct				import Restruct
+
 log					= logging.getLogger('CR_Core')
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
     
 def Module( ChaosRouter ):
@@ -34,8 +37,8 @@ def Module( ChaosRouter ):
                     path		= ".".join([path, name])
 
                 def register_method(path, m):
-                    methodlib		= chaosrouter_core.__methods__
-                    methodlib[path]	= m
+                    log.debug("Saving method in __methods__ @ {}".format(path))
+                    Populater( chaosrouter_core.__methods__ ).save(path, m)
 
                 if inspect.isclass(m):
                     for name in [f for f in dir(m) if callable(getattr(m, f)) and not f.startswith("__")]:
@@ -55,6 +58,11 @@ def Module( ChaosRouter ):
         else:
             self.resolve( config )
 
+    def fill_arguments(args, data):
+        for i,arg in enumerate(args):
+            if type(arg) is str:
+                args[i]			= Populater(data)(arg)
+        return args
             
     def run_command(self, args, ctx, name, error):
         if len(args) == 0:
@@ -63,14 +71,15 @@ def Module( ChaosRouter ):
 
         log.info("core class methods: {}".format(chaosrouter_core.__methods__))
         method				= args.pop(0)
-        cmd				= chaosrouter_core.__methods__[method] # TODO: implement populater
-        data				= args # TODO: implement populater
+        log.info("Extract callable method from path {}".format(method))
+        cmd				= Populater( chaosrouter_core.__methods__ )( "< {}".format(method) )
+        data				= fill_arguments(args, self)
 
         if callable(cmd):
             log.debug("Run command '{}' with context {} for Draft {}".format(method, ctx, self.id()))
             cmd(ctx, *data)
         else:
-            raise Exception("Method '{}' @ {} in {} directive is not a function".format(method, self.raw_path, name))
+            raise Exception("Method '{}' @ {} in {} directive is not a function. type {}".format(method, self.raw_path, name, type(cmd)))
 
     class CTX( object ):
         def __init__(self, draft):
@@ -119,7 +128,7 @@ def Module( ChaosRouter ):
                 ctx			= CTX(self)
 
                 if type(task) is str:
-                    self.resolve( task ) # TODO: implement populater
+                    self.resolve( Populater(self)(task) )
                 elif type(task) is list:
                     run_command(self, task, ctx, "__tasks__", error)
                 else:

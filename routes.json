@@ -13,6 +13,11 @@
 		    "error": "Permission Denied",
 		    "message": "You do not have permission to delete this chat room"
 		}
+	    },
+	    "task_string": {
+		"__tasks__": [
+		    "< input.path.room"
+		]
 	    }
 	}
     },

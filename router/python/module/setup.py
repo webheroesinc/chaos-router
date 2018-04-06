@@ -11,7 +11,7 @@ setup(
     install_requires            = [
         'restruct',
     ],
-    version                     = "0.2.4",
+    version                     = "0.2.6",
     include_package_data        = True,
     author                      = "Matthew Brisebois",
     author_email                = "matthew@webheroes.ca",
