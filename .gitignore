@@ -2,4 +2,3 @@
 *.pyc
 *~
 \#*\#
-/docker/webheroes/chaosrouter/chaosrouter

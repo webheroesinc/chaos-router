@@ -11,5 +11,5 @@ tests:		install
 	python3 -m pytest tests.py
 
 install:
-	sudo pip3 uninstall chaosrouter -y || true
+	sudo pip3 uninstall chaosrouter_core -y || true
 	cd module; sudo python3 setup.py install

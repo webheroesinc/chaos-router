@@ -7,7 +7,13 @@
 	    },
 	    "__trigger__": [
 		"/chat/{{path.room}}"
-	    ]
+	    ],
+	    "delete": {
+		"__response__": {
+		    "error": "Permission Denied",
+		    "message": "You do not have permission to delete this chat room"
+		}
+	    }
 	}
     },
     "get": {

@@ -1,0 +1,4 @@
+module/build
+module/dist
+module/*.egg-info
+.pytest*

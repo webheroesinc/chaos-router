@@ -1,5 +1,6 @@
 
 import logging
+import inspect
 
 log					= logging.getLogger('CR_Core')
 log.setLevel(logging.DEBUG)
@@ -25,10 +26,24 @@ def Module( ChaosRouter ):
         def method(path=None):
             log.info("Registering method with path {} in crcore".format(path))
             def wrap(m):
+                nonlocal path
                 name			= m.__name__
-                log.info("Registering method {} in crcore".format(name))
-                methodlib		= chaosrouter_core.__methods__
-                methodlib[name]		= m
+                if path is None:
+                    path		= name
+                else:
+                    path		= ".".join([path, name])
+
+                def register_method(path, m):
+                    methodlib		= chaosrouter_core.__methods__
+                    methodlib[path]	= m
+
+                if inspect.isclass(m):
+                    for name in [f for f in dir(m) if callable(getattr(m, f)) and not f.startswith("__")]:
+                        path		= ".".join([path, name])
+                        register_method(path, getattr(m, name))
+                else:
+                    log.info("Registering method {} in crcore".format(name))
+                    register_method(path, m)
                 return m
             return wrap
 

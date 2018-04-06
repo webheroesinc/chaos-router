@@ -2,8 +2,8 @@
 import logging
 import json
 
-from urllib.parse				import ( quote		as urllib_quote,
-                                                         unquote	as urllib_unquote )
+from urllib.parse			import ( quote		as urllib_quote,
+                                                 unquote	as urllib_unquote )
 
 log					= logging.getLogger('ChaosRouter')
 log.setLevel(logging.DEBUG)
@@ -38,6 +38,13 @@ def get_variable_key( config ):
             else:
                 pass # TODO: warn about multiple variable keys
     return vkey
+
+def get_non_directives(data):
+    directives				= {}
+    for k,v in data.items():
+        if not k.find(ChaosRouter.DIR_PREFIX) == 0:
+            directives[k]		= v
+    return directives
 
 
 def find_child_config( data, key ):
@@ -178,6 +185,12 @@ class Draft( object ):
     def id(self):
         return self.path
 
+    def segments(self):
+        return self.path.strip('/').split('/')
+
+    def raw_segments(self):
+        return self.raw_path.strip('/').split('/')
+
     def route(self, path):
         log.debug("Routing path {}".format(path))
         node				= self.router.root() if path[0] == "/" else self
@@ -208,7 +221,12 @@ class Draft( object ):
     def child(self, key):
         return Draft(self, key)
 
-    def directives(self, name):
+    def children(self):
+        nondirectives			= get_non_directives(self.config)
+        log.debug("Getting children for {} found these nondirectives {}".format(self.path, nondirectives))
+        return list( map(lambda k: self.child(k), nondirectives) )
+
+    def directives(self, name=None):
         if name:
             return self.directive(name)
         directives			= {}
@@ -226,6 +244,11 @@ class Draft( object ):
         
     def reject(self, data):
         self.__reject__			= data
+
+    def set_input(self, data):
+        if type(data) is not dict:
+            return False
+        self.input.update(data)
 
     def process_directives(self, directives):
         try:
