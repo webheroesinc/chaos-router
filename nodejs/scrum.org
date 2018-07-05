@@ -1,0 +1,81 @@
+
+* Chaos Router
+
+** Backlog
+
+*** Extract DB Controls
+    :VALUE: 20
+    :EFFORT: 20
+    :ROI: 1
+
+    As a Developer, I would like to have full control over the DB interactions
+
+    So that I can use my own query building library (eg. knex)
+
+*** Use Options Dict for Init Params
+    :VALUE: 2
+    :EFFORT: 3
+    :ROI: .67
+
+    As a Developer, I would like to give a dict of params instead of function args
+
+    So that I can see what params are being used for.
+
+*** Class Extentions
+    :VALUE: 13
+    :EFFORT: 40
+    :ROI: .325
+
+    As a Developer, I would like to load Classes for validations and methods
+
+    So that they are grouped and more modular
+
+*** Pass Arguments in Execute
+    :VALUE: 2
+    :EFFORT: 2
+    :ROI: 1
+
+    As a Developer, I would like to pass my arguments as the first arg of execute()
+
+    So that I don't have to call 2 functions
+
+*** Static Results
+    :VALUE: 5
+    :EFFORT: 8
+    :ROI: .625
+
+    As a Developer, I would like to hard code responses in the routes file
+
+    So that I don't have to make a method or a table
+
+*** Static File Results
+    :VALUE: 5
+    :EFFORT: 8
+    :ROI: .625
+
+    As a Developer, I would like to reference a static file as the response
+
+    So that I can store hard coded JSON in files
+
+*** Validate Path Vars
+    :VALUE: 8
+    :EFFORT: 8
+    :ROI: 1
+
+    As a Developer, I would like to be alerted when I overwrite a path variable
+
+    So that I don't get frustrated wondering why my vars are different
+
+** Sprint 1
+
+*** <story>
+    :VALUE:
+    :EFFORT:
+    :ROI:
+
+    As <persona>, I would like to ...
+
+    So that ...
+
+**** <task>
+     :EFFORT:
