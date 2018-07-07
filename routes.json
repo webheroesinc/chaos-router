@@ -94,7 +94,7 @@
 	"test_rules": {
 	    ":id": {
 		"__rules__": [
-		    ["Rules.pass", "< params.id"]
+		    "Rules.pass( params.id )"
 		],
 		"__sql__": true,
 		"__table__": "people",
@@ -112,39 +112,39 @@
 	    },
 	    "fail_false": {
 		"__rules__": [
-		    ["fail_false", "hello", "world"]
+		    "fail_false( 'hello', 'world' )"
 		]
 	    },
 	    "fail_message": {
 		"__rules__": [
-		    ["fail_message", "hello", "world"]
+		    "fail_message( 'hello', 'world' )"
 		]
 	    },
 	    "fail_error": {
 		"__rules__": [
-		    ["fail_error", "hello", "world"]
+		    "fail_error( 'hello', 'world' )"
 		]
 	    },
 	    "class_method": {
 		"__rules__": [
-		    ["TestValidationClass.required_not_empty", "", "= []"]
+		    "TestValidationClass.required_not_empty( '', [] )"
 		]
 	    },
 	    "multi_level": {
 		"__rules__": [
-		    "= Failed at level 1"
+		    " Failed at level 1 "
 		],
 		"level_two": {
 		    "__rules__": [
-			"= Failed at level 2"
+			" Failed at level 2 "
 		    ]
 		}
 	    },
 	    "string": {
 		"__rules__": [
-		    "= true",
-		    "= 'This is not a pass'",
-		    "= false"
+		    " true ",
+		    " 'This is not a pass' ",
+		    " false "
 		]
 	    }
 	},

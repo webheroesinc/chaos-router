@@ -336,3 +336,44 @@
    module.<key1>;       // <value1>
    module.<key2>();     // <value2>
    #+END_SRC
+
+* Relationship to Restruct and Isolate
+
+** Isolate.js
+   This takes only the context object in which to extract the global values.
+
+   #+BEGIN_SRC javascript
+   "return echo( person.first, person.last, person )"
+   // short hand '='
+   "= echo( person.first, person.last, person )"
+   #+END_SRC
+
+** Restruct.js
+   The expectation here is that the data set is JSON compatiple.  Typically coming from a database
+   query, the data will not contain functions.  If the data set does contain functions, there is no
+   way to control the scope (this) value.  If methods are registered through Restruct, the scope
+   value will be the Frame object.
+
+   #+BEGIN_SRC javascript
+   {
+       "= person_id": {
+           "id": "= <int> person_id",
+           "age": "= Calculate.age(person_birthday)",
+           "name": {
+               "first": "= <str> person_first_name",
+               "last": "= <str> person_last_name"
+           }
+       }
+   }
+   #+END_SRC
+
+** Chaosrouter.js
+   Task directive functions are registered through
+
+   #+BEGIN_SRC javascript
+   {
+       "__tasks__": [
+           "",
+       ]
+   }
+   #+END_SRC

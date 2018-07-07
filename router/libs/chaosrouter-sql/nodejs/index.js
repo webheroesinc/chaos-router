@@ -12,9 +12,15 @@ module.exports = function(chaosrouter) {
 	"__directives__": {
 	    "sql": function (config) {
 		var self		= this;
+
+		log.warn("Self keys", Object.keys(self));
+		log.warn("Input", Object.keys(self.input));
+		log.warn("DB", typeof self.input.db);
+		log.warn("DB keys", Object.keys(self.input.db));
+		// log.warn("DB.select", typeof self.input.db.select);
 		
 		var knex		= self.input.db;
-		var q		= knex.select();
+		var q			= knex.select();
 
 		var table		= self.directive('table');
 		var where		= self.directive('where');

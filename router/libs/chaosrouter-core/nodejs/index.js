@@ -2,6 +2,7 @@ var bunyan		= require('bunyan');
 var log			= bunyan.createLogger({name: "ChaosRouter Core",level: 'fatal'});
 
 var fs			= require('fs');
+var isolate		= require('@whi/isolate').extract;
 
 function run_sequence(list, fn, index) {
     if (index === undefined)
@@ -81,6 +82,31 @@ module.exports = function(chaosrouter) {
 	else
 	    throw Error("Method '"+method+"' @ "+self.raw_path+" in "+name+" directive is not a function");
     }
+    
+    // function wrap_methods(methods, ctx) {
+    // 	for (const key in methods) {
+    // 	    const value			= methods[key];
+	    
+    // 	    if ( typeof value !== 'function' ) {
+    // 		if ( typeof value === 'object' && value !== null )
+    // 		    wrap_methods(value, ctx);
+    // 		continue;
+    // 	    }
+
+    // 	    log.warn("Wrapping method", key, value.toString().replace(/\n/g, ''));
+    // 	    (function(key, fn) {
+    // 		eval(`methods[key] = function ${key}() {
+    // 		    log.warn("Wrapper for", key, "arguments", arguments);
+    // 		    return (${fn.toString()}).apply(ctx, arguments);
+    // 		}`);
+    // 	    })(key, value);
+    // 	}
+
+    // 	if (methods.Rules)
+    // 	    log.warn( "Methods", methods.Rules.pass );
+	
+    // 	return methods;
+    // }
 
     return {
 	"__name__": "chaosrouter-core",
@@ -166,6 +192,8 @@ module.exports = function(chaosrouter) {
 					var ctx		= create_ctx();
 					ctx.resolve	= f;
 					ctx.reject	= r;
+					ctx.pass	= f;
+					ctx.fail	= answer => check(answer, f, r);
 					run_command(self, args, ctx, "__rules__", error);
 				    });
 				},
@@ -177,8 +205,18 @@ module.exports = function(chaosrouter) {
 			var ctx		= create_ctx();
 			
 			if (typeof args === 'string') {
-			    var result	= populater(self)(args);
-			    return check(result, next, self.resolve);
+			    // var result	= populater(self)(args);
+
+			    var evalctx		= Object.assign( {}, __methods__, self);
+			    log.warn(
+				"Eval string", args,
+				"Method keys", Object.keys(evalctx),
+				"Ctx keys", Object.keys(ctx),
+			    );
+			    
+			    var result		= isolate(args, evalctx, ctx);
+			    // return check(result, next, self.resolve);
+			    return result;
 			}
 			else if(Array.isArray(args)) {
 			    run_command(self, args, ctx, "__rules__", error);
@@ -204,6 +242,7 @@ module.exports = function(chaosrouter) {
 			"error": "Failed Task",
 			"message": "An error occurred on task '"+args+"'",
 		    };
+		    var check		= checkspace(args, error);
 		    
 		    return function(next) {
 			function create_ctx() {
@@ -227,6 +266,8 @@ module.exports = function(chaosrouter) {
 					var ctx		= create_ctx();
 					ctx.resolve	= f;
 					ctx.reject	= r;
+					ctx.pass	= f;
+					ctx.fail	= answer => check(answer, f, r);
 					run_command(self, args, ctx, "__rules__", error);
 				    });
 				},

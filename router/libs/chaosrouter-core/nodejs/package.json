@@ -1,5 +1,5 @@
 {
-  "name": "chaosrouter-core",
+  "name": "@chaosstack/chaosrouter-core",
   "version": "0.2.1",
   "description": "Chaos-Router Module - Core directives (base, response, rules, tasks)",
   "main": "index.js",
@@ -17,7 +17,9 @@
   "bugs": {
     "url": "https://github.com/webheroesinc/chaos-router/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@whi/isolate": "^0.2.1"
+  },
   "devDependencies": {
     "bunyan": "^1.8.12"
   }

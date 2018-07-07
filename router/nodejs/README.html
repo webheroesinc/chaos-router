@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>README</title>
-<!-- 2017-10-08 Sun 16:19 -->
+<!-- 2017-10-26 Thu 15:11 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="Ubuntu" />
@@ -151,11 +151,19 @@ for the JavaScript code in this tag.
 <li><a href="#sec-1-5">1.5. Calling Module Methods</a></li>
 <li><a href="#sec-1-6">1.6. Usage</a>
 <ul>
-<li><a href="#sec-1-6-1">1.6.1. Draft Node</a></li>
+<li><a href="#sec-1-6-1">1.6.1. Usage with ExpressJS</a></li>
+<li><a href="#sec-1-6-2">1.6.2. Draft Node</a></li>
 </ul>
 </li>
 <li><a href="#sec-1-7">1.7. Creating a Directive</a></li>
 <li><a href="#sec-1-8">1.8. Creating a Module</a></li>
+</ul>
+</li>
+<li><a href="#sec-2">2. Relationship to Restruct and Isolate</a>
+<ul>
+<li><a href="#sec-2-1">2.1. Isolate.js</a></li>
+<li><a href="#sec-2-2">2.2. Restruct.js</a></li>
+<li><a href="#sec-2-3">2.3. Chaosrouter.js</a></li>
 </ul>
 </li>
 </ul>
@@ -353,15 +361,7 @@ router.directive('response', function(text, _, resolve) {
 // Get the Draft Node for route path /api/helloworld
 var draft            = router.route('/api/helloworld');
 
-# draft.run().then(...
-# draft.execute().then(...
-# draft.make().then(...
-# draft.create().then(...
-# draft.go().then(...
 # draft.complete().then(...
-# draft.finish().then(...
-# draft.then(...
-
 draft.proceed().then(function(data) {
     console.log(data); // == "Hello World!"
 });
@@ -370,8 +370,66 @@ draft.proceed().then(function(data) {
 </div>
 
 <div id="outline-container-sec-1-6-1" class="outline-4">
-<h4 id="sec-1-6-1"><span class="section-number-4">1.6.1</span> Draft Node</h4>
+<h4 id="sec-1-6-1"><span class="section-number-4">1.6.1</span> Usage with ExpressJS</h4>
 <div class="outline-text-4" id="text-1-6-1">
+<p>
+This example is the bare minimum for a functional use case.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">const chaosrouter           = require('chaosrouter');
+const express               = require('express');
+
+chaosrouter.modules( 'chaosrouter-core' );
+
+const app                   = express();
+const router                = chaosrouter({
+    "__response__": "404! Try /hello_world",
+    "hello_world": {
+	"__response__": "Hello World!"
+    }
+});
+
+router.modules('chaosrouter-core');
+
+app.use('/', function (req, res) {
+    let draft               = router.route(req.path);
+
+    if (draft === false)
+	return res.send("404");
+
+    draft.proceed().then(function (text) {
+	res.send(text);
+    });
+});
+
+api.listen(8800);
+</pre>
+</div>
+
+<ul class="org-ul">
+<li>A call to the server with path <code>/</code> would resolve to <code>404! Try /hello_world</code>.
+</li>
+<li>A call to the server with path <code>/hello_world</code> would resolve to <code>Hello World!</code>.
+</li>
+</ul>
+
+<div class="org-src-container">
+
+<pre class="src src-bash">$ curl http://localhost:8800
+404! Try /hello_world
+$ curl http://localhost:8800/hello_world
+Hello World!
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-sec-1-6-2" class="outline-4">
+<h4 id="sec-1-6-2"><span class="section-number-4">1.6.2</span> Draft Node</h4>
+<div class="outline-text-4" id="text-1-6-2">
 <p>
 This Object represents a specific point in the routes configuration.  A Draft Node contains all
 the directive instructions for that configuration point.
@@ -541,10 +599,77 @@ module.&lt;key2&gt;();     // &lt;value2&gt;
 </div>
 </div>
 </div>
+
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> Relationship to Restruct and Isolate</h2>
+<div class="outline-text-2" id="text-2">
+</div><div id="outline-container-sec-2-1" class="outline-3">
+<h3 id="sec-2-1"><span class="section-number-3">2.1</span> Isolate.js</h3>
+<div class="outline-text-3" id="text-2-1">
+<p>
+This takes only the context object in which to extract the global values.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">"return echo( person.first, person.last, person )"
+// short hand '='
+"= echo( person.first, person.last, person )"
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-2-2" class="outline-3">
+<h3 id="sec-2-2"><span class="section-number-3">2.2</span> Restruct.js</h3>
+<div class="outline-text-3" id="text-2-2">
+<p>
+The expectation here is that the data set is JSON compatiple.  Typically coming from a database
+query, the data will not contain functions.  If the data set does contain functions, there is no
+way to control the scope (this) value.  If methods are registered through Restruct, the scope
+value will be the Frame object.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">{
+    "= person_id": {
+	"id": "= &lt;int&gt; person_id",
+	"age": "= Calculate.age(person_birthday)",
+	"name": {
+	    "first": "= &lt;str&gt; person_first_name",
+	    "last": "= &lt;str&gt; person_last_name"
+	}
+    }
+}
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-2-3" class="outline-3">
+<h3 id="sec-2-3"><span class="section-number-3">2.3</span> Chaosrouter.js</h3>
+<div class="outline-text-3" id="text-2-3">
+<p>
+Task directive functions are registered through
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-javascript">{
+    "__tasks__": [
+	"",
+    ]
+}
+</pre>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Ubuntu</p>
-<p class="date">Created: 2017-10-08 Sun 16:19</p>
+<p class="date">Created: 2017-10-26 Thu 15:11</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

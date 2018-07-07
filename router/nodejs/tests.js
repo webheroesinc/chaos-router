@@ -16,7 +16,7 @@ var knex		= knexlib({
 });
 knex.CURRENT_TIMESTAMP	= knex.raw('CURRENT_TIMESTAMP');
 
-log.level(chaosrouter.log_level('error'));
+log.level(chaosrouter.log_level('warn'));
 
 chaosrouter.modules( '../../router/libs/chaosrouter-core/nodejs/index.js',
 		     '../../router/libs/chaosrouter-sql/nodejs/index.js' );
@@ -32,6 +32,7 @@ crcore.methods({
     },
     "Rules": {
 	"pass": function() {
+	    log.warn("WE GOT HERE AND WHY IT FAIL?");
 	    this.pass();
 	}
     },
@@ -55,7 +56,7 @@ crcore.methods({
 	    this.resolve({
 		title: "Parent Class Test",
 		message: data.message
-	    })
+	    });
 	}
     },
     "Defer": {
@@ -104,7 +105,7 @@ describe("ChaosRouter", function() {
 		expect(Object.keys(data).length).to.be.gte(80);
 
 		data		= data[1];
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.id).to.be.a("number");
 		expect(data.name).to.be.a("object");
@@ -119,7 +120,7 @@ describe("ChaosRouter", function() {
 	    draft.proceed({
 		"message": "Travis Mottershead + Erika *{}*"
 	    }).then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.title).to.be.a("string");
 		expect(data.message).to.be.a("string");
@@ -133,7 +134,7 @@ describe("ChaosRouter", function() {
 	    draft.proceed({
     		"message": "this function has a parent class"
 	    }).then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.title).to.be.a("string");
 		expect(data.message).to.be.a("string");
@@ -145,7 +146,7 @@ describe("ChaosRouter", function() {
 	it("should return static response", function(done) {
 	    var draft		= router.route("/get/responses/static");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("this is inline static data");
@@ -156,7 +157,7 @@ describe("ChaosRouter", function() {
 	it("should return reponse from a file", function(done) {
 	    var draft		= router.route("/get/responses/file");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("this is a static file response");
@@ -173,7 +174,7 @@ describe("ChaosRouter", function() {
     		    "full": "Ricky Bobby"
     		}
 	    }).then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.first).to.be.a("string");
 		expect(data.last).to.be.a("string");
@@ -191,7 +192,7 @@ describe("ChaosRouter", function() {
     		    "test": "< exact"
     		}
 	    }).then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.test).to.be.a("string");
 		expect(data.test).to.equal("< exact");
@@ -204,7 +205,7 @@ describe("ChaosRouter", function() {
 	    draft.proceed({
 		"file": "../../static_result.json"
 	    }).then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("this is a static file response");
@@ -213,9 +214,11 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should test base directive", function(done) {
+	    log.warn("Starting: should test base directive");
+	    
 	    var draft		= router.route("/get/testBase");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.id).to.be.a("number");
 		expect(data.name).to.be.a("object");
@@ -226,9 +229,11 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should pass validation", function(done) {
+	    log.warn("Starting: should pass validation");
+	    
 	    var draft		= router.route("/get/test_rules/1");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.id).to.be.a("number");
 		expect(data.name).to.be.a("object");
@@ -239,9 +244,11 @@ describe("ChaosRouter", function() {
 	});
 	
 	it("should fail validation", function(done) {
+	    log.warn("Starting: should fail validation");
+	    
 	    var draft		= router.route("/get/test_rules/fail_false");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.error).to.be.a("string");
 		expect(data.message).to.be.a("string");
@@ -253,7 +260,7 @@ describe("ChaosRouter", function() {
 	it("should fail class method validation", function(done) {
 	    var draft		= router.route("/get/test_rules/class_method");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.error).to.be.a("string");
 		expect(data.error).to.equal("Data Required");
@@ -264,7 +271,7 @@ describe("ChaosRouter", function() {
 	it("should fail on string evaluation", function(done) {
 	    var draft		= router.route("/get/test_rules/string");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.error).to.be.a("string");
 		expect(data.message).to.be.a("string");
@@ -276,7 +283,7 @@ describe("ChaosRouter", function() {
 	it("should error because task list is empty", function(done) {
 	    var draft		= router.route("/get/empty_method");
 	    draft.proceed().then(e, function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("Array is empty");
@@ -287,7 +294,7 @@ describe("ChaosRouter", function() {
 	it("should fail validation on parent level", function(done) {
 	    var draft		= router.route("/get/test_rules/multi_level/level_two");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("Did not pass rule config '= Failed at level 1'");
@@ -298,7 +305,7 @@ describe("ChaosRouter", function() {
 	it("should defer responding to a different method", function(done) {
 	    var draft		= router.route("/defer/method");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("This response has been deferred");
@@ -309,7 +316,7 @@ describe("ChaosRouter", function() {
 	it("should defer responding to a different route", function(done) {
 	    var draft		= router.route("/defer/route");
 	    draft.proceed().then(function(data) {
-		log.debug("Data:", data);
+		log.warn("Data:", data);
 		expect(data).to.be.an("object");
 		expect(data.message).to.be.a("string");
 		expect(data.message).to.equal("This response has been deferred");
